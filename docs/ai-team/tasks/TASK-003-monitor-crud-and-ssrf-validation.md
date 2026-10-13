@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-003`
 - **Title**: Monitor Target Management (CRUD, Quota) & SSRF Validation Engine
-- **Current Status**: `IN_PROGRESS`
+- **Current Status**: `REVIEW`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
@@ -65,7 +65,10 @@
 ## 5. Developer Implementation Log (Filled by Developer Agent)
 *This section is filled when transitioning the task to `REVIEW`.*
 
-- **Implementation Commit**: `e58d1b8`
+- **Implementation Commit**: `bb88a02` (Initial: `e58d1b8`, Remediation: `bb88a02`)
+- **Remediation Details**:
+  - BUG-01: Replaced unresolvable test domain `https://goodai.co.nz` with `https://cloudflare.com` in `internal/security/ssrf_test.go` (`TestValidateTargetURL_AllowedURLs`) to guarantee DNS resolution across public GitHub Actions CI runners.
+  - BUG-02: Refactored `openDeleteMonitorModal` in `web/app.js` to accept only monitor `id` (`openDeleteMonitorModal(${m.id})`), caching monitor targets in `cachedMonitors` array and querying `cachedMonitors.find(x => x.id === id)` to eliminate single-quote syntax errors when target names contain apostrophes.
 - **Files Modified**:
   - `internal/model/monitor.go`
   - `internal/storage/monitor_store.go`
