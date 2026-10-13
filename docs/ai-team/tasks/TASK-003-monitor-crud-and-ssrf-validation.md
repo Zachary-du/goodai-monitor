@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-003`
 - **Title**: Monitor Target Management (CRUD, Quota) & SSRF Validation Engine
-- **Current Status**: `IN_PROGRESS`
+- **Current Status**: `REVIEW`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
@@ -65,10 +65,11 @@
 ## 5. Developer Implementation Log (Filled by Developer Agent)
 *This section is filled when transitioning the task to `REVIEW`.*
 
-- **Implementation Commit**: `bb88a02` (Initial: `e58d1b8`, Remediation: `bb88a02`)
+- **Implementation Commit**: `e6bac42` (Initial: `e58d1b8`, Remediation 1: `bb88a02`, Remediation 2: `e6bac42`)
 - **Remediation Details**:
   - BUG-01: Replaced unresolvable test domain `https://goodai.co.nz` with `https://cloudflare.com` in `internal/security/ssrf_test.go` (`TestValidateTargetURL_AllowedURLs`) to guarantee DNS resolution across public GitHub Actions CI runners.
   - BUG-02: Refactored `openDeleteMonitorModal` in `web/app.js` to accept only monitor `id` (`openDeleteMonitorModal(${m.id})`), caching monitor targets in `cachedMonitors` array and querying `cachedMonitors.find(x => x.id === id)` to eliminate single-quote syntax errors when target names contain apostrophes.
+  - BUG-03: Resolved false-positive SSRF blocking on valid public IPv4 destinations. In `internal/security/ssrf.go`, removed `::ffff:0:0/96` and `::0.0.0.0/96` from the CIDR list, segregated `restrictedIPv4Nets` and `restrictedIPv6Nets`, and routed `ip.To4()` matches exclusively against `restrictedIPv4Nets`. Added public IPv4 and IPv4-mapped IPv6 tests in `internal/security/ssrf_test.go`.
 - **Files Modified**:
   - `internal/model/monitor.go`
   - `internal/storage/monitor_store.go`
