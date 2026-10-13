@@ -22,11 +22,16 @@ func NewRouter(db *storage.DB) http.Handler {
 	mux.HandleFunc("/api/healthz", healthHandler)
 
 	var userStore *storage.UserStore
+	var monitorStore *storage.MonitorStore
 	if db != nil {
 		var err error
 		userStore, err = storage.NewUserStore(db)
 		if err != nil {
 			log.Printf("[Router] Warning: failed to initialize user store: %v", err)
+		}
+		monitorStore, err = storage.NewMonitorStore(db)
+		if err != nil {
+			log.Printf("[Router] Warning: failed to initialize monitor store: %v", err)
 		}
 	}
 
@@ -36,6 +41,12 @@ func NewRouter(db *storage.DB) http.Handler {
 		mux.HandleFunc("/api/v1/auth/login", LoginHandler(userStore))
 		mux.HandleFunc("/api/v1/auth/logout", LogoutHandler(userStore))
 		mux.HandleFunc("/api/v1/auth/me", RequireAuth(MeHandler(userStore)))
+	}
+
+	// Monitor Management API endpoints (protected by authentication)
+	if monitorStore != nil {
+		mux.HandleFunc("/api/v1/monitors", RequireAuth(MonitorsCollectionHandler(monitorStore)))
+		mux.HandleFunc("/api/v1/monitors/", RequireAuth(MonitorItemDispatcher(monitorStore)))
 	}
 
 	// Embedded web UI static assets

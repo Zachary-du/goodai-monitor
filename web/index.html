@@ -240,6 +240,135 @@
     .link-btn:hover {
       color: #2563eb;
     }
+    .btn-primary-sm {
+      background-color: #2563eb;
+      color: #ffffff;
+      border: 1px solid #1d4ed8;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    .btn-primary-sm:hover {
+      background-color: #1d4ed8;
+    }
+    .btn-primary-sm:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .quota-badge {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      background-color: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.375rem;
+    }
+    .btn-action {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 0.375rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .btn-action:hover {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-primary);
+    }
+    .btn-action-delete:hover {
+      border-color: rgba(239, 68, 68, 0.4);
+      background-color: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+    .btn-action-pause:hover {
+      border-color: rgba(245, 158, 11, 0.4);
+      background-color: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+    }
+    .btn-danger {
+      background-color: #ef4444;
+      color: #ffffff;
+      border: 1px solid #dc2626;
+      border-radius: 0.375rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    .btn-danger:hover {
+      background-color: #dc2626;
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      max-width: 360px;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .toast-success {
+      border-left: 4px solid #10b981;
+    }
+    .toast-error {
+      border-left: 4px solid #ef4444;
+    }
+    .toast-info {
+      border-left: 4px solid #3b82f6;
+    }
   </style>
 </head>
 <body class="theme-dark">
@@ -354,8 +483,10 @@
             <h3 class="section-title">Monitored Services</h3>
             <span class="section-count" id="monitor-count">1 Target</span>
           </div>
-          <div class="section-actions">
-            <span class="badge-subtle badge-up">100% Target SLA</span>
+          <div class="section-actions" id="monitor-section-actions">
+            <span class="quota-badge" id="monitor-quota-display" style="display: none;">0 / 10 Targets</span>
+            <button id="btn-open-add-monitor" class="btn-primary-sm" style="display: none;">+ Add Target</button>
+            <span class="badge-subtle badge-up" id="sla-badge">100% Target SLA</span>
           </div>
         </div>
 
@@ -365,9 +496,11 @@
               <tr>
                 <th>Service Name</th>
                 <th>Target URL</th>
-                <th>Check Interval</th>
-                <th>Expected Code</th>
+                <th>Interval</th>
+                <th>Latency</th>
+                <th>Uptime</th>
                 <th>Status</th>
+                <th style="text-align: right;">Actions</th>
               </tr>
             </thead>
             <tbody id="monitors-table-body">
@@ -380,8 +513,12 @@
                 </td>
                 <td><code class="url-badge">GET /healthz</code></td>
                 <td>5 seconds</td>
-                <td><span class="code-badge">HTTP 200</span></td>
+                <td>--</td>
+                <td>100.0%</td>
                 <td><span class="badge badge-up">UP</span></td>
+                <td style="text-align: right;">
+                  <span class="text-muted" style="font-size: 0.75rem;">System</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -480,6 +617,139 @@
       </form>
     </div>
   </div>
+
+  <!-- Add Monitor Modal -->
+  <div class="modal-backdrop" id="add-monitor-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 class="modal-title">Add Monitor</h3>
+          <p class="modal-subtitle">Configure continuous uptime and health checks</p>
+        </div>
+        <button class="modal-close" id="btn-close-add-monitor" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="add-monitor-form" class="modal-form">
+        <div class="form-alert" id="add-monitor-alert" style="display: none;"></div>
+        <div class="form-group">
+          <label for="add-monitor-name" class="form-label">Service Name</label>
+          <input type="text" id="add-monitor-name" class="form-input" placeholder="e.g. Production API" required maxlength="100">
+        </div>
+        <div class="form-group">
+          <label for="add-monitor-url" class="form-label">Target URL</label>
+          <input type="url" id="add-monitor-url" class="form-input" placeholder="https://example.com" required>
+          <span class="form-hint">Standard web ports only (80, 443, 8080, 8443). Internal and private destinations strictly blocked.</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="add-monitor-interval" class="form-label">Check Interval</label>
+            <select id="add-monitor-interval" class="form-input">
+              <option value="60" selected>1 min (60s)</option>
+              <option value="300">5 min (300s)</option>
+              <option value="600">10 min (600s)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="add-monitor-timeout" class="form-label">Timeout</label>
+            <select id="add-monitor-timeout" class="form-input">
+              <option value="3">3 seconds</option>
+              <option value="5" selected>5 seconds</option>
+              <option value="10">10 seconds</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="add-monitor-status-code" class="form-label">Expected Status Code</label>
+            <input type="number" id="add-monitor-status-code" class="form-input" value="200" min="100" max="599" required>
+          </div>
+          <div class="form-group">
+            <label for="add-monitor-keyword" class="form-label">Keyword (Optional)</label>
+            <input type="text" id="add-monitor-keyword" class="form-input" placeholder="e.g. OK" maxlength="100">
+          </div>
+        </div>
+        <button type="submit" id="add-monitor-submit-btn" class="btn-primary-block">Create Monitor</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Monitor Modal -->
+  <div class="modal-backdrop" id="edit-monitor-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 class="modal-title">Edit Monitor</h3>
+          <p class="modal-subtitle">Update monitoring target configuration</p>
+        </div>
+        <button class="modal-close" id="btn-close-edit-monitor" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="edit-monitor-form" class="modal-form">
+        <input type="hidden" id="edit-monitor-id">
+        <div class="form-alert" id="edit-monitor-alert" style="display: none;"></div>
+        <div class="form-group">
+          <label for="edit-monitor-name" class="form-label">Service Name</label>
+          <input type="text" id="edit-monitor-name" class="form-input" required maxlength="100">
+        </div>
+        <div class="form-group">
+          <label for="edit-monitor-url" class="form-label">Target URL</label>
+          <input type="url" id="edit-monitor-url" class="form-input" required>
+          <span class="form-hint">Standard web ports only (80, 443, 8080, 8443). Internal IPs strictly blocked.</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-monitor-interval" class="form-label">Check Interval</label>
+            <select id="edit-monitor-interval" class="form-input">
+              <option value="60">1 min (60s)</option>
+              <option value="300">5 min (300s)</option>
+              <option value="600">10 min (600s)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-monitor-timeout" class="form-label">Timeout</label>
+            <select id="edit-monitor-timeout" class="form-input">
+              <option value="3">3 seconds</option>
+              <option value="5">5 seconds</option>
+              <option value="10">10 seconds</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-monitor-status-code" class="form-label">Expected Status Code</label>
+            <input type="number" id="edit-monitor-status-code" class="form-input" min="100" max="599" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-monitor-keyword" class="form-label">Keyword (Optional)</label>
+            <input type="text" id="edit-monitor-keyword" class="form-input" maxlength="100">
+          </div>
+        </div>
+        <button type="submit" id="edit-monitor-submit-btn" class="btn-primary-block">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Monitor Confirmation Modal -->
+  <div class="modal-backdrop" id="delete-monitor-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 class="modal-title">Delete Monitor</h3>
+          <p class="modal-subtitle">Confirm target deletion</p>
+        </div>
+        <button class="modal-close" id="btn-close-delete-modal" aria-label="Close modal">&times;</button>
+      </div>
+      <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+        Are you sure you want to permanently delete <strong id="delete-monitor-name-label" style="color: var(--text-primary);"></strong>? All historical telemetry and check records will be permanently removed.
+      </p>
+      <input type="hidden" id="delete-monitor-id">
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="btn-cancel-delete">Cancel</button>
+        <button type="button" class="btn-danger" id="btn-confirm-delete">Delete Monitor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
 
   <script src="app.js"></script>
 </body>
