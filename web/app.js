@@ -2,6 +2,7 @@
 
 let currentUser = null;
 let monitorPollInterval = null;
+let cachedMonitors = [];
 
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
@@ -252,6 +253,7 @@ function initAuth() {
 
   function setGuestState() {
     currentUser = null;
+    cachedMonitors = [];
     guestNav.style.display = "flex";
     userNav.style.display = "none";
 
@@ -459,9 +461,9 @@ async function loadMonitors() {
     }
 
     const data = await response.json();
-    const monitors = data.monitors || [];
-    renderMonitorsTable(monitors);
-    updateQuotaBadge(monitors.length);
+    cachedMonitors = data.monitors || [];
+    renderMonitorsTable(cachedMonitors);
+    updateQuotaBadge(cachedMonitors.length);
   } catch (err) {
     console.warn("Failed to load monitors:", err);
   }
@@ -522,7 +524,7 @@ function renderMonitorsTable(monitors) {
             <button class="btn-action" onclick="openEditMonitorModal(${m.id})" title="Edit target settings">
               &#9998; Edit
             </button>
-            <button class="btn-action btn-action-delete" onclick="openDeleteMonitorModal(${m.id}, '${escapeHTML(m.name)}')" title="Delete target">
+            <button class="btn-action btn-action-delete" onclick="openDeleteMonitorModal(${m.id})" title="Delete target">
               &#128465;
             </button>
           </div>
@@ -637,7 +639,9 @@ window.openEditMonitorModal = async function(id) {
   }
 };
 
-window.openDeleteMonitorModal = function(id, name) {
+window.openDeleteMonitorModal = function(id) {
+  const m = cachedMonitors.find(x => x.id === id);
+  const name = m ? m.name : "";
   document.getElementById("delete-monitor-id").value = id;
   document.getElementById("delete-monitor-name-label").textContent = name;
   const deleteModal = document.getElementById("delete-monitor-modal");

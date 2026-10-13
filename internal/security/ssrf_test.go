@@ -138,7 +138,7 @@ func TestValidateTargetURL_AllowedURLs(t *testing.T) {
 		"http://example.com:8080",
 		"https://example.com:8443",
 		"https://google.com",
-		"https://goodai.co.nz",
+		"https://cloudflare.com",
 		"http://93.184.216.34",      // Public IP literal for example.com
 		"http://93.184.216.34:80",   // Port 80
 		"http://93.184.216.34:8080", // Port 8080
