@@ -2,29 +2,35 @@
 
 ## Audit Metadata
 - **Task ID**: `TASK-004`
-- **Target Commit**: `d45089f1e5a6afd30c91ee8f22ca2639b6a55789` (`d45089f`)
+- **Target Commit**: `007d0767d7fa4848d1759eca666e6497783f8417` (`007d076`)
 - **Feature Branch**: `task/TASK-004-continuous-probing-engine`
 - **Auditor**: QA / Security Agent
-- **Audit Date**: 2026-10-14
+- **Audit Date**: 2026-10-14 (Re-audit #2)
 - **Final Verdict**: `REJECTED`
 
 ---
 
 ## 1. Executive Summary
-An independent, zero-trust QA & Security audit was conducted on branch `task/TASK-004-continuous-probing-engine` targeting commit `d45089f`.
+An independent, zero-trust QA & Security re-audit was conducted on branch `task/TASK-004-continuous-probing-engine` targeting commit `007d076` following the Developer Agent's remediation attempts for `BUG-01` and `BUG-02` (commits `182ebf2` and `007d076`).
 
-The audit identified two blocking defects requiring immediate remediation:
-1. **BUG-01 (Compile Error & CI Blocker)**: In `internal/prober/client.go:69:47`, `ips` (`[]net.IP`) is passed into `httptrace.DNSDoneInfo{Addrs: ips, Err: err}`. In Go's standard library `net/http/httptrace`, `Addrs` requires type `[]net.IPAddr`. This causes Go compiler error `cannot use ips (variable of type []net.IP) as []net.IPAddr value in struct literal`, leading to immediate failure of GitHub Actions CI Run `38466602911` at step `Lint & Unit Tests` (exit code 1) and skipping binary compilation.
-2. **BUG-02 (Scope Whitelist Violation)**: In commit `5cd107d`, `scripts/run.sh` was modified (replacing the unified ops runner script with a hardcoded `git push` command). `scripts/run.sh` is outside the allowed scope whitelist defined in Section 2 of `TASK-004-continuous-probing-engine.md`.
+The re-audit findings are as follows:
+1. **BUG-01 Remediation Verification**:
+   - In `internal/prober/client.go:67-70`, `net.DefaultResolver.LookupIPAddr(ctx, host)` is now used, returning `[]net.IPAddr`.
+   - `trace.DNSDone(httptrace.DNSDoneInfo{Addrs: ipAddrs, Err: err})` now perfectly matches Go's `httptrace.DNSDoneInfo` struct field definition.
+   - Dial-time SSRF validation correctly inspects `addr.IP` with `security.IsRestrictedIP(addr.IP)`.
+   - The specific compiler error reported in BUG-01 for `internal/prober/client.go` is **RESOLVED**.
+2. **BUG-03 (New Compiler & CI Failure Blocker)**:
+   - In `internal/prober/client_test.go:5:2`, `"fmt"` was imported but is not used anywhere in the file.
+   - Go compiler rejects unused imports with: `"fmt" imported and not used`.
+   - This defect caused remote GitHub Actions CI Run [`38469018380`](https://github.com/Zachary-du/goodai-monitor/actions/runs/38469018380) to fail on Job `Lint & Unit Tests` (exit code 1) on head commit `007d076`.
+   - Because the test suite cannot compile, CI pipeline is red and static binary compilation was skipped.
+3. **BUG-02 Scope Remediation Verification**:
+   - In commit `182ebf2`, the Developer Agent attempted to restore `scripts/run.sh`.
+   - However, `git diff origin/main..HEAD scripts/run.sh` shows that `scripts/run.sh` is **still modified**: line 9 still appends `git push origin task/TASK-004-continuous-probing-engine` and the original script comment is missing.
+   - `scripts/run.sh` remains outside the allowed Section 2 Scope Whitelist of `TASK-004-continuous-probing-engine.md`.
+   - Clean restoration requires reverting `scripts/run.sh` so `git diff origin/main..HEAD scripts/run.sh` is completely empty.
 
-All other dimensions of the implementation were audited:
-- **Probing Security**: Redirect blocking (`http.ErrUseLastResponse`) and 64KB body read truncation (`MaxKeywordScanBytes` with `io.LimitReader`) are correctly implemented.
-- **Concurrency & Goroutine Safety**: Clean per-monitor ticker goroutine management, dynamic add/update/pause/resume lifecycle, and clean cancellation via context and `sync.WaitGroup`.
-- **Multi-Tenant Isolation**: `GET /api/v1/monitors/{id}/metrics` and `GET /api/v1/monitors/{id}/checks` verify user ownership and return HTTP 404 on cross-tenant access.
-- **Rolling Retention**: 14-day prune query (`DELETE FROM checks WHERE created_at < ?`) supported by indices and scheduled on startup + 24h ticker.
-- **Language Policy**: Verified 100% English across all UI, log messages, error strings, and comments (zero Chinese characters).
-
-Due to BUG-01 and BUG-02, the task is **REJECTED** and returned to the Developer Agent for remediation.
+Due to CI pipeline failure (**BUG-03**) and the remaining scope modification on `scripts/run.sh` (**BUG-02**), the task is **REJECTED** and returned to the Developer Agent for immediate resolution.
 
 ---
 
@@ -35,13 +41,13 @@ Due to BUG-01 and BUG-02, the task is **REJECTED** and returned to the Developer
 
 | ID | Requirement Description | Verification Method / Evidence | Result | Notes / Logs |
 |---|---|---|---|---|
-| **AC-1** | Active monitors are probed periodically at their configured intervals (e.g. every 60s) completely independent of user browser presence. | Inspection of `internal/prober/scheduler.go` (`runMonitorJob` ticker loop) and `scheduler_test.go`; blocked by compile error in `client.go`. | `FAIL` | Blocked by package compile failure in `internal/prober/client.go:69:47`; CI Run 38466602911 failed. |
-| **AC-2** | Prober measures accurate latency breakdown (DNS, TCP, TLS, TTFB, Total) and stores check records. | `httptrace.ClientTrace` in `internal/prober/client.go`; `check_store.go` schema migration and `RecordCheck`. | `FAIL` | Blocked by type mismatch at `client.go:69:47` (`ips` as `[]net.IPAddr`). |
-| **AC-3** | Failed checks accurately record specific failure reason (e.g. `HTTP 502 Bad Gateway`, `Connection timeout after 5000ms`, `Keyword 'Welcome' missing`). | Error formatting in `internal/prober/client.go` lines 220-226, 258-261, 274; unit tests in `client_test.go`. | `FAIL` | Verification blocked by compilation failure of `internal/prober`. |
-| **AC-4** | Paused monitors are excluded from probing; resuming dynamically schedules the probe without requiring server restart. | Lifecycle methods in `internal/prober/scheduler.go` (`AddOrUpdateMonitor`, `SyncMonitors`) and `scheduler_test.go` (`TestScheduler_PauseAndResume`). | `FAIL` | Verification blocked by compilation failure of `internal/prober`. |
-| **AC-5** | `SafeDialContext` prevents DNS rebinding by resolving IP at dial time and connecting directly to verified IP. | Safe dial closure in `internal/prober/client.go` lines 40-88 resolves IP at dial time, checks `security.IsRestrictedIP`, and dials verified IP directly. | `FAIL` | Defect in `DNSDone` trace callback at line 69 prevents compilation. |
-| **AC-6** | Automated retention job purges check records older than 14 days every 24 hours. | `internal/storage/check_store.go` (`PruneOldChecks`) and `scheduler.go` (startup + 24h ticker); `check_store_test.go` (`TestCheckStore_PruneOldChecks`). | `FAIL` | Verification blocked by project-wide CI build failure. |
-| **AC-7** | Telemetry API returns 24-hour uptime % and historical latency points within < 30ms. | Endpoints `/api/v1/monitors/{id}/metrics` and `/checks` in `metrics_handlers.go`, indexed SQLite query `idx_checks_monitor_created`. | `FAIL` | Verification blocked by project-wide CI build failure. |
+| **AC-1** | Active monitors are probed periodically at their configured intervals (e.g. every 60s) completely independent of user browser presence. | Inspection of `internal/prober/scheduler.go` (`runMonitorJob` ticker loop) and `scheduler_test.go`. | `FAIL` | Blocked by compilation failure in `internal/prober/client_test.go:5:2`; CI Run 38469018380 failed. |
+| **AC-2** | Prober measures accurate latency breakdown (DNS, TCP, TLS, TTFB, Total) and stores check records. | `httptrace.ClientTrace` in `internal/prober/client.go`; `check_store.go` schema migration and `RecordCheck`. | `FAIL` | Package compilation blocked by unused import in `internal/prober/client_test.go`. |
+| **AC-3** | Failed checks accurately record specific failure reason (e.g. `HTTP 502 Bad Gateway`, `Connection timeout after 5000ms`, `Keyword 'Welcome' missing`). | Error formatting in `internal/prober/client.go` lines 220-226, 258-261, 274; unit tests in `client_test.go`. | `FAIL` | Blocked by package compile failure in `internal/prober/client_test.go:5:2`. |
+| **AC-4** | Paused monitors are excluded from probing; resuming dynamically schedules the probe without requiring server restart. | Lifecycle methods in `internal/prober/scheduler.go` (`AddOrUpdateMonitor`, `SyncMonitors`) and `scheduler_test.go` (`TestScheduler_PauseAndResume`). | `FAIL` | Verification blocked by project-wide CI test failure. |
+| **AC-5** | `SafeDialContext` prevents DNS rebinding by resolving IP at dial time and connecting directly to verified IP. | Safe dial closure in `internal/prober/client.go` lines 40-88 resolves IP at dial time, checks `security.IsRestrictedIP(addr.IP)`, and dials verified IP directly. Type mismatch in `DNSDone` resolved. | `FAIL` | Verification blocked by CI build failure caused by `client_test.go`. |
+| **AC-6** | Automated retention job purges check records older than 14 days every 24 hours. | `internal/storage/check_store.go` (`PruneOldChecks`) and `scheduler.go` (startup + 24h ticker); `check_store_test.go` (`TestCheckStore_PruneOldChecks`). | `FAIL` | Verification blocked by CI failure. |
+| **AC-7** | Telemetry API returns 24-hour uptime % and historical latency points within < 30ms. | Endpoints `/api/v1/monitors/{id}/metrics` and `/checks` in `metrics_handlers.go`, indexed SQLite query `idx_checks_monitor_created`. | `FAIL` | Verification blocked by CI failure. |
 | **AC-8** | Process physical RAM remains under 25 MiB RSS with 20 active monitors probed continuously. | End-to-end memory stress test. | `NOT VERIFIED` | Cannot run compiled daemon binary due to CI build failure. |
 
 ---
@@ -54,7 +60,7 @@ Due to BUG-01 and BUG-02, the task is **REJECTED** and returned to the Developer
 - [x] **Check 3**: Verified no secrets or session tokens leak into console logs or error outputs.
 
 ### 3.2 Input Validation, SSRF & Attack Defenses
-- [ ] **Check 1**: URLs provided to synthetic prober are validated against private IP / SSRF filters in dialer (Blocked by compile defect BUG-01 in `client.go`).
+- [x] **Check 1**: URLs provided to synthetic prober are validated against private IP / SSRF filters in dialer (`security.IsRestrictedIP(addr.IP)` at dial time).
 - [x] **Check 2**: Open redirect SSRF bypass prevented via `http.ErrUseLastResponse` in `NewClient` and `NewTestClient`.
 - [x] **Check 3**: Response body scanning capped at 64 KB (`MaxKeywordScanBytes`) via `io.LimitReader` to prevent memory exhaustion / OOM attacks.
 - [x] **Check 4**: All REST API input parameters are strictly validated (`parseMetricsMonitorID` enforces numeric integer, query `limit` clamped between 1 and 100).
@@ -70,7 +76,7 @@ Due to BUG-01 and BUG-02, the task is **REJECTED** and returned to the Developer
 
 ### 3.5 Language & Presentation Compliance
 - [x] **Check 1**: **100% English UI verified**: Zero Chinese characters across `web/index.html` and `web/app.js`.
-- [x] **Check 2**: **100% English Backend verified**: Zero Chinese characters in Go source code, logs, and comments (verified via `git grep -P "[\x{4e00}-\x{9fa5}]"`).
+- [x] **Check 2**: **100% English Backend verified**: Zero Chinese characters in Go source code, logs, and comments (verified via AST/regex scanner over all modified files).
 
 ---
 
@@ -78,16 +84,18 @@ Due to BUG-01 and BUG-02, the task is **REJECTED** and returned to the Developer
 
 | Bug ID | Severity | Status | Summary | Steps to Reproduce | Expected vs Actual | Remediation |
 |---|---|---|---|---|---|---|
-| **BUG-01** | Critical (CI Blocker) | **Open** | Type mismatch in `internal/prober/client.go:69:47` (`[]net.IP` passed to `[]net.IPAddr`) prevents Go compiler from building `internal/prober` package. | 1. Inspect `internal/prober/client.go` lines 67-70.<br>2. Run `go vet ./...` or `go test ./internal/prober/...` in Go 1.22+.<br>3. Inspect GitHub Actions Run `38466602911` Job `Lint & Unit Tests`. | **Expected**: Code compiles cleanly and all unit tests pass.<br>**Actual**: Compiler error: `cannot use ips (variable of type []net.IP) as []net.IPAddr value in struct literal`. CI job fails with exit code 1. | Replace `LookupIP` with `LookupIPAddr(ctx, host)` returning `[]net.IPAddr`, pass `Addrs: ipAddrs` to `trace.DNSDone`, and check `addr.IP` against `security.IsRestrictedIP`. |
-| **BUG-02** | Low / Scope Blocker | **Open** | Modification of `scripts/run.sh` is outside the allowed Section 2 Scope Whitelist. | 1. Inspect `git diff origin/main..HEAD --name-only`.<br>2. Notice `scripts/run.sh` was modified in commit `5cd107d`.<br>3. Check Section 2 Scope Whitelist of `TASK-004-continuous-probing-engine.md`. | **Expected**: Only files in the Section 2 Scope Whitelist are modified. `scripts/run.sh` remains the project's unified ops runner script.<br>**Actual**: `scripts/run.sh` was overwritten with a hardcoded `git push` command. | Revert `scripts/run.sh` to its original contents as in `main`. |
+| **BUG-01** | Critical (CI Blocker) | **Resolved** | Type mismatch in `internal/prober/client.go:69:47` (`[]net.IP` passed to `[]net.IPAddr`) prevented Go compiler from building `internal/prober` package. | In commit `182ebf2`, replaced `LookupIP` with `net.DefaultResolver.LookupIPAddr(ctx, host)`. Checked `addr.IP` with `security.IsRestrictedIP`. | **Expected**: `trace.DNSDone` receives `[]net.IPAddr`.<br>**Actual**: Correctly resolved in commit `182ebf2`. | Verified resolved. |
+| **BUG-02** | Low / Scope Blocker | **Open** | `scripts/run.sh` remains modified on feature branch; not in Section 2 Scope Whitelist. | Run `git diff origin/main..HEAD scripts/run.sh`. Line 9 still contains `git push origin task/TASK-004-continuous-probing-engine`. | **Expected**: `scripts/run.sh` identical to `origin/main` (`git diff origin/main..HEAD scripts/run.sh` is empty).<br>**Actual**: File is still modified in branch diff. | Run `git checkout origin/main -- scripts/run.sh` and commit. |
+| **BUG-03** | Critical (CI Blocker) | **Open** | Unused import `"fmt"` in `internal/prober/client_test.go:5:2` fails compilation and breaks GitHub Actions CI. | 1. Inspect `internal/prober/client_test.go:5`.<br>2. Check GitHub Actions Run `38469018380` Job `Lint & Unit Tests` (exit code 1). Annotation: `"fmt" imported and not used`. | **Expected**: Test package compiles and runs clean.<br>**Actual**: Go compiler fails with `"fmt" imported and not used`. CI job `Lint & Unit Tests` fails. | Remove `"fmt"` from the import declaration in `internal/prober/client_test.go`. |
 
 ---
 
 ## 5. Merge & Deployment Recommendation
 - **Recommendation**: `RETURN_TO_DEVELOPER`
-- **Residual Risks**: Probing engine cannot compile until BUG-01 is fixed; CI pipeline is failing.
+- **Residual Risks**: Test suite does not compile due to unused import in `internal/prober/client_test.go`; remote CI pipeline is red; `scripts/run.sh` violates scope whitelist.
 - **Action Required by Developer Agent**:
-  1. Resolve BUG-01 by switching to `net.DefaultResolver.LookupIPAddr(ctx, host)` in `internal/prober/client.go`.
-  2. Resolve BUG-02 by restoring `scripts/run.sh` to its clean version.
-  3. Push commits to `task/TASK-004-continuous-probing-engine` and verify GitHub Actions CI run succeeds.
-  4. Transition task status back to `REVIEW`.
+  1. Remove `"fmt"` from `internal/prober/client_test.go` (resolving BUG-03).
+  2. Restore `scripts/run.sh` cleanly using `git checkout origin/main -- scripts/run.sh` (resolving BUG-02).
+  3. Push commits to `task/TASK-004-continuous-probing-engine`.
+  4. Verify that remote GitHub Actions CI run succeeds (green checkmark on `Lint & Unit Tests` and `Build Linux Static Binary`).
+  5. Transition task status back to `REVIEW`.

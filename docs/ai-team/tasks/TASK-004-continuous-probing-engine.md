@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-004`
 - **Title**: Continuous Background Probing Engine, Telemetry & Rolling Retention
-- **Current Status**: `REVIEW`
+- **Current Status**: `IN_PROGRESS`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
@@ -109,5 +109,5 @@
 
 - **Audit Report Reference**: `docs/ai-team/tasks/TASK-004-continuous-probing-engine-qa-report.md`
 - **Verdict**: `REJECTED`
-- **Audit Date**: 2026-10-14
-- **Human Approval Request**: Rejected back to IN_PROGRESS. Remote GitHub Actions CI run 38466602911 failed on step 'Lint & Unit Tests' due to compile error in `internal/prober/client.go:69:47` (`cannot use ips (variable of type []net.IP) as []net.IPAddr value in struct literal`) (BUG-01). Scope whitelist violation identified on `scripts/run.sh` (BUG-02).
+- **Audit Date**: 2026-10-14 (Re-audit #2)
+- **Human Approval Request**: Rejected back to IN_PROGRESS. While BUG-01 in `internal/prober/client.go` was resolved, a new compile defect BUG-03 was identified in `internal/prober/client_test.go:5:2` (`"fmt" imported and not used`), causing remote GitHub Actions CI run 38469018380 (commit 007d076) to fail at 'Lint & Unit Tests' with exit code 1. Furthermore, BUG-02 remains open as `scripts/run.sh` is still modified in branch diff against `origin/main`. Developer must remove unused import `"fmt"` from `client_test.go` and cleanly restore `scripts/run.sh` to match `origin/main`.
