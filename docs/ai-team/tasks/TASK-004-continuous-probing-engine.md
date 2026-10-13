@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-004`
 - **Title**: Continuous Background Probing Engine, Telemetry & Rolling Retention
-- **Current Status**: `IN_PROGRESS`
+- **Current Status**: `REVIEW`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
@@ -74,7 +74,10 @@
 ## 5. Developer Implementation Log (Filled by Developer Agent)
 *This section is filled when transitioning the task to `REVIEW`.*
 
-- **Implementation Commit**: `5cd107d`
+- **Implementation Commit**: `182ebf2` (remediation commit resolving BUG-01 and BUG-02; base feature commit `5cd107d`)
+- **Remediation Details**:
+  - BUG-01: In `internal/prober/client.go`, replaced `net.DefaultResolver.LookupIP` with `net.DefaultResolver.LookupIPAddr(ctx, host)` to pass `[]net.IPAddr` to `trace.DNSDone(httptrace.DNSDoneInfo{Addrs: ipAddrs, Err: err})`, resolving the type mismatch compiler error. Verified restricted IP check evaluates `addr.IP` against `security.IsRestrictedIP(addr.IP)` and verified address dials `ipAddrs[0].IP.String()`.
+  - BUG-02: Restored `scripts/run.sh` to the standard clean unified ops runner structure.
 - **Files Modified**:
   - `internal/model/check.go`: Created `Check`, `CheckResult`, `LatencyBreakdown`, `LatencyPoint`, and `MetricsSummary` structs.
   - `internal/storage/check_store.go`: Created `CheckStore` with SQLite `checks` migration, `RecordCheck`, `GetRecentChecksByMonitor`, `GetLatencyHistory`, `CalculateUptimeStats` (24h/7d/30d), and `PruneOldChecks` (14-day rolling retention).
