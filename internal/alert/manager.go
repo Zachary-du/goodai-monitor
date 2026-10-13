@@ -2,7 +2,6 @@ package alert
 
 import (
 	"context"
-	"errors"
 	"log"
 	"sync"
 	"time"
