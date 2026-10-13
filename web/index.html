@@ -748,6 +748,93 @@
     </div>
   </div>
 
+  <!-- Monitor Details & Telemetry Modal -->
+  <div class="modal-backdrop" id="monitor-details-modal" style="display: none;">
+    <div class="modal-card" style="max-width: 860px; width: 95%;">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
+            <h3 class="modal-title" id="details-monitor-name">Monitor Telemetry</h3>
+            <span class="badge" id="details-monitor-status-badge">UP</span>
+          </div>
+          <p class="modal-subtitle" id="details-monitor-url" style="word-break: break-all; font-family: var(--font-mono); font-size: 0.8125rem;"></p>
+        </div>
+        <button class="modal-close" id="btn-close-details-modal" aria-label="Close modal">&times;</button>
+      </div>
+
+      <div class="telemetry-body" style="padding: 1.25rem 1.5rem; max-height: 80vh; overflow-y: auto;">
+        <!-- SLA Uptime Overview Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+          <div style="background-color: var(--bg-surface-elevated); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.25rem;">24h SLA Uptime</div>
+            <div id="details-uptime-24h" style="font-size: 1.5rem; font-weight: 700; font-family: var(--font-mono); color: var(--color-up);">100.0%</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="details-checks-count-24h">0 probes</div>
+          </div>
+          <div style="background-color: var(--bg-surface-elevated); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.25rem;">7d SLA Uptime</div>
+            <div id="details-uptime-7d" style="font-size: 1.5rem; font-weight: 700; font-family: var(--font-mono); color: var(--color-up);">100.0%</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Rolling 7-day period</div>
+          </div>
+          <div style="background-color: var(--bg-surface-elevated); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.25rem;">30d SLA Uptime</div>
+            <div id="details-uptime-30d" style="font-size: 1.5rem; font-weight: 700; font-family: var(--font-mono); color: var(--color-up);">100.0%</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Rolling 30-day period</div>
+          </div>
+          <div style="background-color: var(--bg-surface-elevated); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.25rem;">24h Avg Latency</div>
+            <div id="details-avg-latency" style="font-size: 1.5rem; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary);">-- ms</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="details-cert-expiry">TLS: Active</div>
+          </div>
+        </div>
+
+        <!-- Latency Trend Sparkline / Chart -->
+        <div style="background-color: var(--bg-surface-elevated); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+            <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Response Time Trend (Past 24 Hours)</div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
+              <span class="status-indicator-dot online" style="width: 6px; height: 6px;"></span>
+              <span>Live 10s Telemetry Refresh</span>
+            </div>
+          </div>
+          <div id="details-chart-container" style="width: 100%; height: 160px; position: relative;">
+            <svg id="details-latency-chart" style="width: 100%; height: 100%; overflow: visible;" viewBox="0 0 760 160" preserveAspectRatio="none">
+              <!-- Grid lines & sparkline drawn dynamically by app.js -->
+            </svg>
+          </div>
+        </div>
+
+        <!-- Recent 50 Checks Log Table -->
+        <div style="border: 1px solid var(--border-color); border-radius: 0.5rem; overflow: hidden;">
+          <div style="padding: 0.75rem 1rem; background-color: var(--bg-surface-elevated); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Recent Check Execution Logs</span>
+            <span style="font-size: 0.75rem; color: var(--text-secondary); font-family: var(--font-mono);" id="details-checks-table-count">Last 50 Probes</span>
+          </div>
+          <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+            <table class="data-table" style="font-size: 0.8125rem;">
+              <thead>
+                <tr>
+                  <th style="padding: 0.5rem 0.75rem;">Timestamp</th>
+                  <th style="padding: 0.5rem 0.75rem;">Status</th>
+                  <th style="padding: 0.5rem 0.75rem;">Code</th>
+                  <th style="padding: 0.5rem 0.75rem;">Latency</th>
+                  <th style="padding: 0.5rem 0.75rem;">Timings (DNS / TCP / TLS / TTFB)</th>
+                  <th style="padding: 0.5rem 0.75rem;">Diagnostics / Cert</th>
+                </tr>
+              </thead>
+              <tbody id="details-checks-table-body">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                    Loading recent check logs...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 

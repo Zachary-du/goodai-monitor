@@ -3,6 +3,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Zachary-du/goodai-monitor/internal/storage"
@@ -11,7 +12,7 @@ import (
 
 // NewRouter constructs and configures the HTTP router for GoodAI Monitor.
 // It registers health check telemetry endpoints, authentication endpoints,
-// and serves embedded frontend assets with security headers and auth middleware.
+// monitor management and telemetry endpoints, and serves embedded frontend assets.
 func NewRouter(db *storage.DB) http.Handler {
 	mux := http.NewServeMux()
 	startTime := time.Now()
@@ -23,6 +24,8 @@ func NewRouter(db *storage.DB) http.Handler {
 
 	var userStore *storage.UserStore
 	var monitorStore *storage.MonitorStore
+	var checkStore *storage.CheckStore
+
 	if db != nil {
 		var err error
 		userStore, err = storage.NewUserStore(db)
@@ -32,6 +35,10 @@ func NewRouter(db *storage.DB) http.Handler {
 		monitorStore, err = storage.NewMonitorStore(db)
 		if err != nil {
 			log.Printf("[Router] Warning: failed to initialize monitor store: %v", err)
+		}
+		checkStore, err = storage.NewCheckStore(db)
+		if err != nil {
+			log.Printf("[Router] Warning: failed to initialize check store: %v", err)
 		}
 	}
 
@@ -43,10 +50,16 @@ func NewRouter(db *storage.DB) http.Handler {
 		mux.HandleFunc("/api/v1/auth/me", RequireAuth(MeHandler(userStore)))
 	}
 
-	// Monitor Management API endpoints (protected by authentication)
+	// Monitor Management & Telemetry API endpoints (protected by authentication)
 	if monitorStore != nil {
 		mux.HandleFunc("/api/v1/monitors", RequireAuth(MonitorsCollectionHandler(monitorStore)))
-		mux.HandleFunc("/api/v1/monitors/", RequireAuth(MonitorItemDispatcher(monitorStore)))
+
+		if checkStore != nil {
+			mux.HandleFunc("/api/v1/monitors/{id}/metrics", RequireAuth(MonitorMetricsHandler(monitorStore, checkStore)))
+			mux.HandleFunc("/api/v1/monitors/{id}/checks", RequireAuth(MonitorChecksHandler(monitorStore, checkStore)))
+		}
+
+		mux.HandleFunc("/api/v1/monitors/", RequireAuth(MonitorItemDispatcherWithTelemetry(monitorStore, checkStore)))
 	}
 
 	// Embedded web UI static assets
@@ -59,6 +72,48 @@ func NewRouter(db *storage.DB) http.Handler {
 	}
 
 	return securityHeadersMiddleware(handler)
+}
+
+// MonitorItemDispatcherWithTelemetry routes monitor item actions including metrics, checks, pause, and CRUD.
+func MonitorItemDispatcherWithTelemetry(store *storage.MonitorStore, checkStore *storage.CheckStore) http.HandlerFunc {
+	getHandler := GetMonitorHandler(store)
+	putHandler := UpdateMonitorHandler(store)
+	deleteHandler := DeleteMonitorHandler(store)
+	pauseHandler := TogglePauseMonitorHandler(store)
+
+	var metricsHandler, checksHandler http.HandlerFunc
+	if checkStore != nil {
+		metricsHandler = MonitorMetricsHandler(store, checkStore)
+		checksHandler = MonitorChecksHandler(store, checkStore)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		if strings.HasSuffix(path, "/pause") {
+			pauseHandler(w, r)
+			return
+		}
+		if strings.HasSuffix(path, "/metrics") && metricsHandler != nil {
+			metricsHandler(w, r)
+			return
+		}
+		if strings.HasSuffix(path, "/checks") && checksHandler != nil {
+			checksHandler(w, r)
+			return
+		}
+
+		switch r.Method {
+		case http.MethodGet:
+			getHandler(w, r)
+		case http.MethodPut:
+			putHandler(w, r)
+		case http.MethodDelete:
+			deleteHandler(w, r)
+		default:
+			writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		}
+	}
 }
 
 // securityHeadersMiddleware injects essential HTTP security headers into all responses.
