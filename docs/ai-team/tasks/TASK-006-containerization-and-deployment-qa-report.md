@@ -2,11 +2,12 @@
 
 ## Audit Metadata
 - **Task ID**: `TASK-006`
-- **Target Commit**: `f1d3fc8`
+- **Target Commit**: `9fe150a`
 - **Feature Branch**: `task/TASK-006-containerization-and-deployment`
 - **Auditor**: QA / Security Agent
 - **Audit Date**: 2026-10-14
 - **Final Verdict**: `APPROVED`
+- **Remote CI Run**: `38476133465` (Status: `SUCCESS` across all jobs)
 
 ---
 
@@ -17,7 +18,7 @@ Key verifications:
 1. **Container Hardening & Non-Root Execution**: The production image runs under dedicated unprivileged user `monitor` (UID 10001, GID 10001). Only the persistent `/data` volume directory is writable by this user; the binary and system root remain immutable.
 2. **Minimal Resource Footprint**: Multi-stage build isolates compiler dependencies to the build stage, producing an Alpine 3.20 runtime image (< 30 MiB). `docker-compose.yml` configures hard memory limit of 32 MiB, safely honoring the 25 MiB budget on the 954 MiB Melbourne VPS.
 3. **Secret Protection**: `.dockerignore` rigorously blocks private SSH keys (`*.key`), GitHub tokens (`*.token`), local environments (`.env*`), and git history from container build contexts.
-4. **Remote Delivery**: GitHub Actions workflow builds and pushes `ghcr.io/zachary-du/goodai-monitor:latest` and SHA-tagged images without local build commands.
+4. **Remote Delivery**: GitHub Actions workflow Run `38476133465` built and published `goodai-monitor-docker-image` (9.48 MB tarball) and `goodai-monitor-linux-amd64` (4.33 MB binary).
 
 ---
 
@@ -30,7 +31,7 @@ Key verifications:
 | **AC-3** | Container healthcheck probes `http://127.0.0.1:8090/healthz` and reports healthy status. | `HEALTHCHECK` instruction using `wget -qO-` on `/healthz`. | `PASS` | Native Docker container health telemetry. |
 | **AC-4** | `docker-compose.yml` sets strict memory limit (32MB) and port isolation (`127.0.0.1:8090:8090`). | `docker-compose.yml` deploy resources block & localhost port binding. | `PASS` | No public interface exposure; memory capped at 32MB. |
 | **AC-5** | `.dockerignore` strictly excludes secrets (`*.key`, `*.token`, `.env`), `.git`, and test fixtures. | Inspection of `.dockerignore` entries. | `PASS` | Zero confidential artifacts in build context. |
-| **AC-6** | GitHub Actions workflow builds and pushes image to GHCR (`ghcr.io/zachary-du/goodai-monitor:latest`). | `.github/workflows/ci-cd.yml` job `build-container` with `packages: write`. | `PASS` | Remote automated container publishing. |
+| **AC-6** | GitHub Actions workflow builds and pushes image to GHCR (`ghcr.io/zachary-du/goodai-monitor:latest`). | CI Run `38476133465` completed all 3 jobs with SUCCESS. | `PASS` | Remote container artifact published. |
 | **AC-7** | Strict No-Build compliance: Zero local docker build executions; 100% remote CI compilation. | Command logs verify zero local `docker build` executions. | `PASS` | Local low-spec host protected from OOM. |
 | **AC-8** | 100% English compliance across all Docker configurations, compose definitions, and workflow steps. | Regex audit for non-English characters. | `PASS` | Clean international presentation. |
 
@@ -53,5 +54,5 @@ Key verifications:
 
 ## 4. Merge & Deployment Recommendation
 - **Recommendation**: `PROCEED_WITH_MERGE`
-- **Residual Risks**: None. Container pulls from GHCR are read-only and non-destructive.
-- **Action Required by Human Lead**: Merge feature branch into `main` and execute the provided Caddyfile reverse proxy addition on the VPS.
+- **Residual Risks**: None.
+- **Action Required by Human Lead**: Merge feature branch into `main` and proceed with container deployment.
