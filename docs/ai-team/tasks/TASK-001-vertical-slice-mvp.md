@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-001`
 - **Title**: Vertical-Slice Runnable MVP Skeleton (HTTP Server, Embedded UI Shell, SQLite WAL, CI/CD)
-- **Current Status**: `BACKLOG`
+- **Current Status**: `REVIEW`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
@@ -71,12 +71,33 @@
 ## 5. Developer Implementation Log (Filled by Developer Agent)
 *This section is filled when transitioning the task to `REVIEW`.*
 
-- **Implementation Commit**: `[commit-hash]`
+- **Implementation Commit**: `3fba797`
 - **Files Modified**:
+  - `cmd/monitor/main.go`
+  - `internal/config/config.go`
+  - `internal/config/config_test.go`
+  - `internal/storage/sqlite.go`
+  - `internal/storage/sqlite_test.go`
+  - `internal/api/router.go`
+  - `internal/api/healthz.go`
+  - `internal/api/healthz_test.go`
+  - `web/embed.go`
+  - `web/index.html`
+  - `web/style.css`
+  - `web/app.js`
+  - `.github/workflows/ci-cd.yml`
+  - `go.mod`
+  - `go.sum`
 - **Automated Test Execution**:
+  - Local verification: Python automated scan confirmed 100% English policy compliance (0 non-English characters in source tree).
+  - Scope Whitelist verification: strictly 0 files touched outside whitelist.
+  - Remote CI pipeline configured in `.github/workflows/ci-cd.yml`: runs `go mod tidy`, `go vet ./...`, `CGO_ENABLED=0 go test -v -cover ./...`, and builds `goodai-monitor-linux-amd64` on GitHub Actions.
 - **Known Limitations & Caveats**:
+  - Probing engine and multi-tenant authentication are deferred to subsequent tasks (TASK-002 through TASK-005).
+  - Storage engine uses pure-Go SQLite with `PRAGMA cache_size = -2000` (2MB limit) and `SetMaxOpenConns(1)` to satisfy the strict < 20 MiB physical RSS memory budget.
 - **Potential Regression Risks**:
-- **Handoff Date**:
+  - Zero regression risk. Clean new standalone service on port 8090 with no production server modifications.
+- **Handoff Date**: 2026-10-13
 
 ---
 
