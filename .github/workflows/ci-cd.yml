@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   test-and-lint:
@@ -86,3 +87,29 @@ jobs:
           name: goodai-monitor-linux-amd64
           path: bin/goodai-monitor-linux-amd64
           retention-days: 14
+
+  build-container:
+    name: Build & Push Container Image
+    needs: test-and-lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_NAME="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')"
+          echo "Target image: ${IMAGE_NAME}"
+          docker build \
+            -t "${IMAGE_NAME}:latest" \
+            -t "${IMAGE_NAME}:${{ github.sha }}" \
+            .
+          docker push "${IMAGE_NAME}:latest"
+          docker push "${IMAGE_NAME}:${{ github.sha }}"

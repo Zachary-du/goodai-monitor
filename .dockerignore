@@ -1,0 +1,11 @@
+.git
+.github
+*.key
+*.token
+key/
+.env*
+docs/
+dist/
+data/
+*.md
+.DS_Store
