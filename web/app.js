@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initClock();
   initAuth();
   initMonitors();
+  initIncidents();
   pollHealth();
   setInterval(pollHealth, 5000);
 });
@@ -248,6 +249,7 @@ function initAuth() {
     if (quotaDisplay) quotaDisplay.style.display = "inline-block";
 
     loadMonitors();
+    loadIncidents();
     startMonitorPolling();
   }
 
@@ -265,6 +267,7 @@ function initAuth() {
 
     stopMonitorPolling();
     renderGuestMonitors();
+    renderGuestIncidents();
   }
 }
 
@@ -903,7 +906,10 @@ function formatTimestamp(isoStr) {
 
 function startMonitorPolling() {
   stopMonitorPolling();
-  monitorPollInterval = setInterval(loadMonitors, 8000);
+  monitorPollInterval = setInterval(() => {
+    loadMonitors();
+    loadIncidents();
+  }, 8000);
 }
 
 function stopMonitorPolling() {
@@ -911,6 +917,169 @@ function stopMonitorPolling() {
     clearInterval(monitorPollInterval);
     monitorPollInterval = null;
   }
+}
+
+// Incident Hub Management (AC-8)
+let currentIncidentFilter = "all";
+let cachedIncidents = [];
+
+function initIncidents() {
+  const filterAll = document.getElementById("filter-incident-all");
+  const filterOpen = document.getElementById("filter-incident-open");
+  const filterResolved = document.getElementById("filter-incident-resolved");
+  const btnScroll = document.getElementById("btn-scroll-to-incidents");
+
+  if (filterAll) {
+    filterAll.addEventListener("click", () => setIncidentFilter("all"));
+  }
+  if (filterOpen) {
+    filterOpen.addEventListener("click", () => setIncidentFilter("open"));
+  }
+  if (filterResolved) {
+    filterResolved.addEventListener("click", () => setIncidentFilter("resolved"));
+  }
+  if (btnScroll) {
+    btnScroll.addEventListener("click", () => {
+      const section = document.getElementById("incidents-section");
+      if (section) {
+        section.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+  }
+}
+
+function setIncidentFilter(filter) {
+  currentIncidentFilter = filter;
+  ["all", "open", "resolved"].forEach(f => {
+    const el = document.getElementById(`filter-incident-${f}`);
+    if (el) {
+      if (f === filter) {
+        el.classList.add("active");
+      } else {
+        el.classList.remove("active");
+      }
+    }
+  });
+  loadIncidents();
+}
+
+async function loadIncidents() {
+  if (!currentUser) return;
+
+  try {
+    // 1. Fetch incident summary to update active outage banner
+    const summaryRes = await fetch("/api/v1/incidents/summary", { cache: "no-store" });
+    if (summaryRes.ok) {
+      const summary = await summaryRes.json();
+      updateOutageBanner(summary.open_count);
+    }
+
+    // 2. Fetch incidents with current filter
+    const incRes = await fetch(`/api/v1/incidents?status=${currentIncidentFilter}&limit=50`, { cache: "no-store" });
+    if (!incRes.ok) return;
+
+    const data = await incRes.json();
+    cachedIncidents = data.incidents || [];
+    renderIncidentsTable(cachedIncidents);
+  } catch (err) {
+    console.warn("Failed to load incidents:", err);
+  }
+}
+
+function updateOutageBanner(openCount) {
+  const banner = document.getElementById("active-outage-banner");
+  const bannerTitle = document.getElementById("outage-banner-title");
+  const bannerMessage = document.getElementById("outage-banner-message");
+
+  const sysBannerBadge = document.getElementById("banner-badge");
+  const sysBannerText = document.getElementById("banner-status-text");
+  const sysBannerHeading = document.getElementById("banner-heading");
+  const sysBannerSubtext = document.getElementById("banner-subtext");
+  const brandIndicator = document.getElementById("brand-indicator");
+
+  if (openCount > 0) {
+    if (banner) banner.style.display = "flex";
+    if (bannerTitle) bannerTitle.textContent = `${openCount} Active Outage${openCount === 1 ? "" : "s"} Confirmed`;
+    if (bannerMessage) bannerMessage.textContent = `${openCount} monitored target${openCount === 1 ? " is" : "s are"} currently down after consecutive failed checks. Alert emails dispatched.`;
+
+    // Elevate overall system banner to DOWN
+    if (sysBannerBadge) sysBannerBadge.className = "banner-status-badge badge-down";
+    if (sysBannerText) sysBannerText.textContent = "OUTAGE DETECTED";
+    if (sysBannerHeading) sysBannerHeading.textContent = `${openCount} Service Outage${openCount === 1 ? "" : "s"} In Progress`;
+    if (sysBannerSubtext) sysBannerSubtext.textContent = "Automated probes detected downtime. Investigating root cause.";
+    if (brandIndicator) brandIndicator.className = "status-indicator-dot offline";
+  } else {
+    if (banner) banner.style.display = "none";
+  }
+}
+
+function renderIncidentsTable(incidents) {
+  const emptyState = document.getElementById("incidents-empty-state");
+  const tableWrapper = document.getElementById("incidents-table-wrapper");
+  const tbody = document.getElementById("incidents-table-body");
+  const countBadge = document.getElementById("incident-count-display");
+
+  if (countBadge) {
+    countBadge.textContent = `${incidents.length} Recorded`;
+  }
+
+  if (incidents.length === 0) {
+    if (emptyState) emptyState.style.display = "flex";
+    if (tableWrapper) tableWrapper.style.display = "none";
+    return;
+  }
+
+  if (emptyState) emptyState.style.display = "none";
+  if (tableWrapper) tableWrapper.style.display = "block";
+
+  if (!tbody) return;
+
+  tbody.innerHTML = incidents.map(inc => {
+    const isResolved = inc.status === "RESOLVED";
+    const badgeClass = isResolved ? "badge-up" : "badge-down";
+    const statusText = inc.status;
+    const durationText = isResolved && inc.duration_seconds > 0 
+      ? formatDurationSeconds(inc.duration_seconds)
+      : `<span style="color: var(--color-down); font-weight: 600;">Ongoing</span>`;
+
+    return `
+      <tr>
+        <td>
+          <div class="service-cell">
+            <span class="service-name">${escapeHTML(inc.monitor_name || "Monitor #" + inc.monitor_id)}</span>
+            <span class="service-tags">${escapeHTML(inc.monitor_url || "")}</span>
+          </div>
+        </td>
+        <td><span class="badge ${badgeClass}">${statusText}</span></td>
+        <td><span style="font-family: var(--font-mono); font-size: 0.8125rem;">${formatTimestamp(inc.started_at)}</span></td>
+        <td><span style="font-family: var(--font-mono); font-size: 0.8125rem;">${durationText}</span></td>
+        <td><span style="font-size: 0.8125rem; color: var(--text-secondary); max-width: 320px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(inc.cause)}">${escapeHTML(inc.cause || "Probe failure")}</span></td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function renderGuestIncidents() {
+  const banner = document.getElementById("active-outage-banner");
+  if (banner) banner.style.display = "none";
+
+  const emptyState = document.getElementById("incidents-empty-state");
+  const tableWrapper = document.getElementById("incidents-table-wrapper");
+  const countBadge = document.getElementById("incident-count-display");
+
+  if (emptyState) emptyState.style.display = "flex";
+  if (tableWrapper) tableWrapper.style.display = "none";
+  if (countBadge) countBadge.textContent = "0 Recorded";
+}
+
+function formatDurationSeconds(seconds) {
+  if (seconds <= 0) return "0s";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 // Toast Notifications

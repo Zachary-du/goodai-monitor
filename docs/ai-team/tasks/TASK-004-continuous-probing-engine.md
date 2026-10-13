@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-004`
 - **Title**: Continuous Background Probing Engine, Telemetry & Rolling Retention
-- **Current Status**: `REVIEW`
+- **Current Status**: `DONE`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13

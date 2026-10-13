@@ -13,6 +13,13 @@ type Config struct {
 	LogLevel          string
 	Timezone          string
 	DataRetentionDays int
+
+	// SMTP alerting settings
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	SMTPFrom     string
 }
 
 // Load reads configuration values from environment variables or applies defaults.
@@ -24,6 +31,12 @@ func Load() *Config {
 		LogLevel:          getEnv("LOG_LEVEL", "info"),
 		Timezone:          getEnv("TZ", "Pacific/Auckland"),
 		DataRetentionDays: getEnvInt("DATA_RETENTION_DAYS", 14),
+
+		SMTPHost:     getEnv("SMTP_HOST", ""),
+		SMTPPort:     getEnvInt("SMTP_PORT", 587),
+		SMTPUsername: getEnv("SMTP_USERNAME", ""),
+		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:     getEnv("SMTP_FROM", ""),
 	}
 }
 
@@ -33,6 +46,11 @@ func (c *Config) Address() string {
 		return ":" + c.Port
 	}
 	return c.Host + ":" + c.Port
+}
+
+// IsSMTPConfigured returns true if minimum SMTP configuration parameters are present.
+func (c *Config) IsSMTPConfigured() bool {
+	return c.SMTPHost != "" && c.SMTPFrom != ""
 }
 
 // getEnv retrieves an environment variable or returns the default value if unset or empty.

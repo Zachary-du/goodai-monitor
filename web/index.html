@@ -369,6 +369,79 @@
     .toast-info {
       border-left: 4px solid #3b82f6;
     }
+
+    /* Outage Alert Banner & Incident Hub */
+    .outage-alert-banner {
+      background: linear-gradient(90deg, rgba(239, 68, 68, 0.2), rgba(185, 28, 28, 0.15));
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      border-radius: 0.5rem;
+      padding: 0.875rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      color: #fca5a5;
+      animation: pulseAlert 2s infinite ease-in-out;
+    }
+    @keyframes pulseAlert {
+      0%, 100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 0 rgba(239, 68, 68, 0); }
+      50% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 12px rgba(239, 68, 68, 0.25); }
+    }
+    .outage-alert-icon {
+      font-size: 1.5rem;
+      color: #ef4444;
+      line-height: 1;
+    }
+    .outage-alert-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+    .outage-alert-content strong {
+      color: #ffffff;
+      font-size: 0.9375rem;
+      font-weight: 600;
+    }
+    .outage-alert-content span {
+      font-size: 0.8125rem;
+      color: #fca5a5;
+    }
+    .outage-alert-btn {
+      background-color: #ef4444;
+      color: #ffffff;
+      border: none;
+      border-radius: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.15s ease;
+    }
+    .outage-alert-btn:hover {
+      background-color: #dc2626;
+    }
+    .incident-filter-btn {
+      background-color: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 0.375rem;
+      padding: 0.25rem 0.625rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .incident-filter-btn:hover {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-primary);
+    }
+    .incident-filter-btn.active {
+      background-color: #2563eb;
+      border-color: #1d4ed8;
+      color: #ffffff;
+    }
   </style>
 </head>
 <body class="theme-dark">
@@ -405,6 +478,16 @@
     </header>
 
     <main class="app-main">
+      <!-- Active Incident Outage Alert Banner (AC-8) -->
+      <div id="active-outage-banner" class="outage-alert-banner" style="display: none;">
+        <div class="outage-alert-icon">&#9888;</div>
+        <div class="outage-alert-content">
+          <strong id="outage-banner-title">Active Outage Confirmed</strong>
+          <span id="outage-banner-message">One or more monitored services are currently experiencing confirmed downtime.</span>
+        </div>
+        <button class="outage-alert-btn" id="btn-scroll-to-incidents">View Incidents</button>
+      </div>
+
       <!-- System Overall Status Banner -->
       <section class="status-banner" id="system-banner">
         <div class="banner-content">
@@ -525,18 +608,42 @@
         </div>
       </section>
 
-      <!-- Incident Log Section -->
-      <section class="content-section">
+      <!-- Incident Hub Section (AC-8) -->
+      <section class="content-section" id="incidents-section">
         <div class="section-header">
           <div class="section-title-wrap">
-            <h3 class="section-title">Recent Incident Log</h3>
-            <span class="section-count">Past 24 Hours</span>
+            <h3 class="section-title">Incident Hub</h3>
+            <span class="section-count" id="incident-count-display">0 Recorded</span>
+          </div>
+          <div class="section-actions">
+            <div class="incident-filters" style="display: flex; gap: 0.375rem;">
+              <button class="incident-filter-btn active" data-filter="all" id="filter-incident-all">All</button>
+              <button class="incident-filter-btn" data-filter="open" id="filter-incident-open">Active</button>
+              <button class="incident-filter-btn" data-filter="resolved" id="filter-incident-resolved">Resolved</button>
+            </div>
           </div>
         </div>
-        <div class="empty-state">
-          <div class="empty-icon">&#10003;</div>
-          <div class="empty-title">Zero Incidents Recorded</div>
-          <div class="empty-desc">All synthetic probes completed successfully with no flapping or outages.</div>
+        <div id="incidents-container">
+          <div class="empty-state" id="incidents-empty-state">
+            <div class="empty-icon">&#10003;</div>
+            <div class="empty-title">Zero Incidents Recorded</div>
+            <div class="empty-desc">All synthetic probes completed successfully with no flapping or outages.</div>
+          </div>
+          <div class="table-responsive" id="incidents-table-wrapper" style="display: none;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Target Service</th>
+                  <th>Status</th>
+                  <th>Triggered Time</th>
+                  <th>Duration</th>
+                  <th>Root Cause</th>
+                </tr>
+              </thead>
+              <tbody id="incidents-table-body">
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>

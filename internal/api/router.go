@@ -25,6 +25,7 @@ func NewRouter(db *storage.DB) http.Handler {
 	var userStore *storage.UserStore
 	var monitorStore *storage.MonitorStore
 	var checkStore *storage.CheckStore
+	var incidentStore *storage.IncidentStore
 
 	if db != nil {
 		var err error
@@ -39,6 +40,10 @@ func NewRouter(db *storage.DB) http.Handler {
 		checkStore, err = storage.NewCheckStore(db)
 		if err != nil {
 			log.Printf("[Router] Warning: failed to initialize check store: %v", err)
+		}
+		incidentStore, err = storage.NewIncidentStore(db)
+		if err != nil {
+			log.Printf("[Router] Warning: failed to initialize incident store: %v", err)
 		}
 	}
 
@@ -60,6 +65,12 @@ func NewRouter(db *storage.DB) http.Handler {
 		}
 
 		mux.HandleFunc("/api/v1/monitors/", RequireAuth(MonitorItemDispatcherWithTelemetry(monitorStore, checkStore)))
+	}
+
+	// Incident Hub API endpoints (protected by authentication)
+	if incidentStore != nil {
+		mux.HandleFunc("/api/v1/incidents", RequireAuth(ListIncidentsHandler(incidentStore)))
+		mux.HandleFunc("/api/v1/incidents/summary", RequireAuth(IncidentSummaryHandler(incidentStore)))
 	}
 
 	// Embedded web UI static assets
