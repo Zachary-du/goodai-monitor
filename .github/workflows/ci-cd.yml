@@ -1,0 +1,88 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-lint:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Download & Tidy Go Modules
+        run: |
+          go mod tidy
+
+      - name: Verify 100% English Policy
+        run: |
+          echo "Scanning for non-English characters in source files..."
+          MATCHES=$(git grep -P "[\x{4e00}-\x{9fa5}]" -- ':!docs' ':!Gemini.md' ':!.git' || true)
+          if [ -n "$MATCHES" ]; then
+            echo "ERROR: Found non-English characters in source files:"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "100% English policy verified: zero Chinese characters in source tree."
+
+      - name: Static Analysis (go vet)
+        run: |
+          go vet ./...
+
+      - name: Run Automated Unit Tests
+        run: |
+          CGO_ENABLED=0 go test -v -cover ./...
+
+  build-binary:
+    name: Build Linux Static Binary
+    needs: test-and-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Download & Tidy Go Modules
+        run: |
+          go mod tidy
+
+      - name: Compile Linux AMD64 Binary
+        run: |
+          mkdir -p bin
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -trimpath \
+            -ldflags="-s -w -X main.version=${{ github.sha }}" \
+            -o bin/goodai-monitor-linux-amd64 \
+            ./cmd/monitor
+
+      - name: Verify Binary Architecture
+        run: |
+          file bin/goodai-monitor-linux-amd64
+          ls -lh bin/goodai-monitor-linux-amd64
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goodai-monitor-linux-amd64
+          path: bin/goodai-monitor-linux-amd64
+          retention-days: 14
