@@ -68,3 +68,25 @@ This document logs all critical architectural, engineering, and product decision
 - **Consequences**:
   - Positive: Zero false-alarm flapping alerts; clear downtime duration records; robust against transient glitches.
   - Requirement: Incident state is persisted in SQLite with monitor and tenant foreign keys, supporting restart recovery.
+
+### ADR-006: Hardened Containerization & Dual Artifact Distribution Strategy
+- **Date**: 2026-10-14
+- **Status**: ACCEPTED
+- **Deciders**: Human Lead, AI Engineering Team
+- **Context**:
+  Operator requested containerized deployment for GoodAI Monitor serving the root apex domain `goodai.co.nz` on the Melbourne VPS, while strictly preserving resource constraints and zero local build limits.
+- **Decision**:
+  1. Package application using a hardened multi-stage `Dockerfile`:
+     - Stage 1 compiles the Go binary using Alpine Go 1.22 with `go mod tidy` and `-ldflags="-s -w"`.
+     - Stage 2 runs Alpine 3.20 as dedicated unprivileged non-root user `monitor` (UID 10001, GID 10001).
+     - Persistent database mounted at `/data/monitor.db`.
+  2. Implement dual distribution in remote GitHub Actions CI:
+     - Push multi-arch OCI images to GitHub Container Registry (`ghcr.io/zachary-du/goodai-monitor:latest` and tagged with commit SHA).
+     - Save and upload Docker image tarball (`goodai-monitor-docker.tar.gz`) as a CI artifact, allowing direct loading via `docker load` without requiring registry credentials on the VPS.
+  3. Enforce strict resource quotas in `docker-compose.yml`:
+     - Hard memory limit: `32M`.
+     - CPU quota: `0.2`.
+     - Port binding: `127.0.0.1:8090:8090` (loopback only, exposed publicly exclusively via host Caddy reverse proxy with automatic Let's Encrypt TLS).
+- **Consequences**:
+  - Positive: Clean container isolation, non-root execution security, zero port conflicts with existing VPS services.
+  - Verification: GitHub Actions CI Run `38476133465` successfully verified compilation, testing, and container packaging.

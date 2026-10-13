@@ -1,0 +1,36 @@
+services:
+  goodai-monitor:
+    image: ghcr.io/zachary-du/goodai-monitor:latest
+    container_name: goodai-monitor
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ./data:/data
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - PORT=8090
+      - HOST=0.0.0.0
+      - STORAGE_PATH=/data/monitor.db
+      - TZ=Pacific/Auckland
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 32M
+        reservations:
+          memory: 16M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
