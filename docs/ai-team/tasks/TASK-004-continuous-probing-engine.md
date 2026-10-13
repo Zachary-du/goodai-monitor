@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-004`
 - **Title**: Continuous Background Probing Engine, Telemetry & Rolling Retention
-- **Current Status**: `REVIEW`
+- **Current Status**: `IN_PROGRESS`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
@@ -104,7 +104,7 @@
 ## 6. QA Verification Summary (Filled by QA / Security Agent)
 *This section is filled during `REVIEW` phase.*
 
-- **Audit Report Reference**:
-- **Verdict**: `PENDING`
-- **Audit Date**:
-- **Human Approval Request**:
+- **Audit Report Reference**: `docs/ai-team/tasks/TASK-004-continuous-probing-engine-qa-report.md`
+- **Verdict**: `REJECTED`
+- **Audit Date**: 2026-10-14
+- **Human Approval Request**: Rejected back to IN_PROGRESS. Remote GitHub Actions CI run 38466602911 failed on step 'Lint & Unit Tests' due to compile error in `internal/prober/client.go:69:47` (`cannot use ips (variable of type []net.IP) as []net.IPAddr value in struct literal`) (BUG-01). Scope whitelist violation identified on `scripts/run.sh` (BUG-02).
