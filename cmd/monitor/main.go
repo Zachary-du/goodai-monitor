@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Zachary-du/goodai-monitor/internal/alert"
 	"github.com/Zachary-du/goodai-monitor/internal/api"
 	"github.com/Zachary-du/goodai-monitor/internal/config"
 	"github.com/Zachary-du/goodai-monitor/internal/prober"
@@ -35,17 +36,48 @@ func main() {
 	}()
 	log.Printf("[INFO] SQLite database initialized in WAL mode at '%s'", cfg.StoragePath)
 
-	// 3. Initialize CheckStore and start continuous background probing engine
+	// 3. Initialize Stores, AlertManager, and Prober Scheduler
+	userStore, err := storage.NewUserStore(db)
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to initialize user store: %v", err)
+	}
+
+	monitorStore, err := storage.NewMonitorStore(db)
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to initialize monitor store: %v", err)
+	}
+
 	checkStore, err := storage.NewCheckStore(db)
 	if err != nil {
 		log.Fatalf("[FATAL] Failed to initialize check store: %v", err)
 	}
 
+	incidentStore, err := storage.NewIncidentStore(db)
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to initialize incident store: %v", err)
+	}
+
+	emailSender := alert.NewSMTPEmailSender(alert.SMTPConfig{
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		Username: cfg.SMTPUsername,
+		Password: cfg.SMTPPassword,
+		From:     cfg.SMTPFrom,
+	})
+	if emailSender.IsConfigured() {
+		log.Printf("[INFO] SMTP alert dispatcher enabled via %s:%d", cfg.SMTPHost, cfg.SMTPPort)
+	} else {
+		log.Println("[INFO] SMTP alert dispatcher disabled (no SMTP credentials configured).")
+	}
+
+	alertManager := alert.NewAlertManager(incidentStore, userStore, monitorStore, emailSender)
+
 	scheduler := prober.NewScheduler(checkStore, nil)
+	scheduler.SetAlertProcessor(alertManager)
 	schedulerCtx, cancelScheduler := context.WithCancel(context.Background())
 	defer cancelScheduler()
 	scheduler.Start(schedulerCtx)
-	log.Println("[INFO] Prober background scheduler and retention engine initialized.")
+	log.Println("[INFO] Prober background scheduler, incident state machine, and retention engine initialized.")
 
 	// 4. Initialize HTTP router and server
 	router := api.NewRouter(db)

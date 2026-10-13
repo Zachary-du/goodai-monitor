@@ -244,3 +244,58 @@ func TestScheduler_StopCleanly(t *testing.T) {
 		t.Errorf("expected 0 jobs after Stop, got %d", scheduler.ActiveJobCount())
 	}
 }
+
+type mockAlertProcessor struct {
+	mu           sync.Mutex
+	processed    []int64
+	resetMonIDs  []int64
+}
+
+func (m *mockAlertProcessor) ProcessCheckResult(ctx context.Context, mon *model.Monitor, check *model.Check) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.processed = append(m.processed, mon.ID)
+}
+
+func (m *mockAlertProcessor) ResetMonitorState(monitorID int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.resetMonIDs = append(m.resetMonIDs, monitorID)
+}
+
+func TestScheduler_AlertProcessorNotification(t *testing.T) {
+	db, monitorStore, _, _, scheduler := setupTestScheduler(t)
+	defer db.Close()
+	ctx := context.Background()
+
+	mockAP := &mockAlertProcessor{}
+	scheduler.SetAlertProcessor(mockAP)
+
+	m, err := monitorStore.CreateMonitor(ctx, &model.Monitor{
+		UserID:             1,
+		Name:               "Alert Proc Target",
+		URL:                "https://example.com/alerts",
+		IntervalSeconds:    1,
+		TimeoutSeconds:     1,
+		ExpectedStatusCode: 200,
+	})
+	if err != nil {
+		t.Fatalf("failed to create monitor: %v", err)
+	}
+
+	scheduler.executeProbe(ctx, m)
+
+	mockAP.mu.Lock()
+	if len(mockAP.processed) != 1 || mockAP.processed[0] != m.ID {
+		t.Errorf("expected alert processor to receive check event for monitor %d, got %v", m.ID, mockAP.processed)
+	}
+	mockAP.mu.Unlock()
+
+	scheduler.RemoveMonitor(m.ID)
+	mockAP.mu.Lock()
+	if len(mockAP.resetMonIDs) != 1 || mockAP.resetMonIDs[0] != m.ID {
+		t.Errorf("expected alert processor to receive reset event for monitor %d, got %v", m.ID, mockAP.resetMonIDs)
+	}
+	mockAP.mu.Unlock()
+}
+

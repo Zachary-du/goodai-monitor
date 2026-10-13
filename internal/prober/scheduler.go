@@ -17,18 +17,25 @@ type monitorJob struct {
 	done    chan struct{}
 }
 
+// AlertProcessor receives check results to manage incident lifecycles and notifications.
+type AlertProcessor interface {
+	ProcessCheckResult(ctx context.Context, m *model.Monitor, check *model.Check)
+	ResetMonitorState(monitorID int64)
+}
+
 // Scheduler continuously schedules and executes synthetic probes for all active monitors,
 // adapts dynamically to monitor lifecycle events (add, update, pause, resume, delete),
 // and periodically executes the 14-day rolling retention pruning job.
 type Scheduler struct {
-	store     *storage.CheckStore
-	prober    Prober
-	mu        sync.RWMutex
-	jobs      map[int64]*monitorJob
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	isRunning bool
+	store          *storage.CheckStore
+	prober         Prober
+	alertProcessor AlertProcessor
+	mu             sync.RWMutex
+	jobs           map[int64]*monitorJob
+	ctx            context.Context
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
+	isRunning      bool
 }
 
 // NewScheduler initializes a new dynamic probe Scheduler.
@@ -43,6 +50,13 @@ func NewScheduler(store *storage.CheckStore, customProber Prober) *Scheduler {
 		prober: customProber,
 		jobs:   make(map[int64]*monitorJob),
 	}
+}
+
+// SetAlertProcessor registers an AlertProcessor (e.g. AlertManager) to receive probe events.
+func (s *Scheduler) SetAlertProcessor(ap AlertProcessor) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.alertProcessor = ap
 }
 
 // Start boots the background scheduling loops, loads all active monitors, and initiates the 24h retention pruner.
@@ -184,11 +198,15 @@ func (s *Scheduler) AddOrUpdateMonitor(m *model.Monitor) {
 // RemoveMonitor halts and unregisters probing for the specified monitor ID.
 func (s *Scheduler) RemoveMonitor(monitorID int64) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if job, exists := s.jobs[monitorID]; exists {
 		job.cancel()
 		delete(s.jobs, monitorID)
+	}
+	ap := s.alertProcessor
+	s.mu.Unlock()
+
+	if ap != nil {
+		ap.ResetMonitorState(monitorID)
 	}
 }
 
@@ -278,6 +296,14 @@ func (s *Scheduler) executeProbe(ctx context.Context, m *model.Monitor) {
 
 	if _, err := s.store.RecordCheck(ctx, check); err != nil {
 		log.Printf("[WARN] Failed to record check for monitor ID %d: %v", m.ID, err)
+	}
+
+	s.mu.RLock()
+	ap := s.alertProcessor
+	s.mu.RUnlock()
+
+	if ap != nil {
+		ap.ProcessCheckResult(ctx, m, check)
 	}
 }
 

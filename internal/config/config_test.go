@@ -12,6 +12,11 @@ func TestLoad_Defaults(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "")
 	t.Setenv("TZ", "")
 	t.Setenv("DATA_RETENTION_DAYS", "")
+	t.Setenv("SMTP_HOST", "")
+	t.Setenv("SMTP_PORT", "")
+	t.Setenv("SMTP_USERNAME", "")
+	t.Setenv("SMTP_PASSWORD", "")
+	t.Setenv("SMTP_FROM", "")
 
 	cfg := Load()
 
@@ -36,6 +41,12 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.Address() != ":8090" {
 		t.Errorf("expected default Address ':8090', got '%s'", cfg.Address())
 	}
+	if cfg.SMTPPort != 587 {
+		t.Errorf("expected default SMTPPort 587, got %d", cfg.SMTPPort)
+	}
+	if cfg.IsSMTPConfigured() {
+		t.Errorf("expected IsSMTPConfigured to be false with empty env")
+	}
 }
 
 func TestLoad_CustomEnv(t *testing.T) {
@@ -45,6 +56,11 @@ func TestLoad_CustomEnv(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("TZ", "UTC")
 	t.Setenv("DATA_RETENTION_DAYS", "30")
+	t.Setenv("SMTP_HOST", "mail.example.com")
+	t.Setenv("SMTP_PORT", "465")
+	t.Setenv("SMTP_USERNAME", "mailer")
+	t.Setenv("SMTP_PASSWORD", "secret")
+	t.Setenv("SMTP_FROM", "alerts@example.com")
 
 	cfg := Load()
 
@@ -68,6 +84,24 @@ func TestLoad_CustomEnv(t *testing.T) {
 	}
 	if cfg.Address() != "127.0.0.1:9090" {
 		t.Errorf("expected Address '127.0.0.1:9090', got '%s'", cfg.Address())
+	}
+	if cfg.SMTPHost != "mail.example.com" {
+		t.Errorf("expected SMTPHost 'mail.example.com', got '%s'", cfg.SMTPHost)
+	}
+	if cfg.SMTPPort != 465 {
+		t.Errorf("expected SMTPPort 465, got %d", cfg.SMTPPort)
+	}
+	if cfg.SMTPUsername != "mailer" {
+		t.Errorf("expected SMTPUsername 'mailer', got '%s'", cfg.SMTPUsername)
+	}
+	if cfg.SMTPPassword != "secret" {
+		t.Errorf("expected SMTPPassword 'secret', got '%s'", cfg.SMTPPassword)
+	}
+	if cfg.SMTPFrom != "alerts@example.com" {
+		t.Errorf("expected SMTPFrom 'alerts@example.com', got '%s'", cfg.SMTPFrom)
+	}
+	if !cfg.IsSMTPConfigured() {
+		t.Errorf("expected IsSMTPConfigured to be true")
 	}
 }
 

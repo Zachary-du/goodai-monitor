@@ -53,3 +53,18 @@ This document logs all critical architectural, engineering, and product decision
   Enforce strict role separation: PM specifies tasks (`BACKLOG`), Human Lead approves (`READY`), Developer implements in isolated Git branches/worktrees (`IN_PROGRESS`), QA independently verifies with zero-trust audit (`REVIEW`), Human Lead approves final merge (`DONE`).
 - **Consequences**:
   - Positive: Complete traceability, zero merge conflicts, rigorous security gatekeeping.
+
+### ADR-005: Anti-Flapping Incident State Machine (N=2, M=2) & SMTP Alerting
+- **Date**: 2026-10-14
+- **Status**: ACCEPTED
+- **Deciders**: Human Lead, AI Engineering Team
+- **Context**:
+  Transient network glitches or single dropped packets can trigger false-alarm outage emails and rapid toggling (flapping) between UP and DOWN states, eroding operator trust.
+- **Decision**:
+  1. Enforce strict anti-flapping thresholds: $N=2$ consecutive check failures required to confirm an outage and transition to `DOWN` with an `OPEN` incident; $M=2$ consecutive check successes required to confirm recovery and transition back to `UP` with a `RESOLVED` incident.
+  2. Implement outbound email alerts using standard Go `net/smtp` with STARTTLS support and dual-timezone timestamp formatting (NZDT & UTC).
+  3. Enforce strict deduplication: at most 1 outage alert email per incident; no repeated emails during an ongoing outage.
+  4. Ensure graceful degradation: unconfigured or failed SMTP connections log warnings with masked credentials and never interrupt probe execution or crash background workers.
+- **Consequences**:
+  - Positive: Zero false-alarm flapping alerts; clear downtime duration records; robust against transient glitches.
+  - Requirement: Incident state is persisted in SQLite with monitor and tenant foreign keys, supporting restart recovery.
