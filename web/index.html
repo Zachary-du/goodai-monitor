@@ -5,6 +5,242 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GoodAI Monitor - Cloud Availability &amp; Health</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Auth Navigation & Modals Styling */
+    .auth-nav-container {
+      display: flex;
+      align-items: center;
+    }
+    .auth-nav-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn-auth-signin {
+      background-color: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      border-radius: 0.375rem;
+      cursor: pointer;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+    .btn-auth-signin:hover {
+      background-color: var(--bg-surface-elevated);
+    }
+    .btn-auth-signup {
+      background-color: #2563eb;
+      color: #ffffff;
+      border: 1px solid #1d4ed8;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      padding: 0.375rem 0.875rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .btn-auth-signup:hover {
+      background-color: #1d4ed8;
+    }
+    .btn-auth-logout {
+      background-color: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 0.375rem;
+      cursor: pointer;
+      padding: 0.25rem 0.625rem;
+      font-size: 0.75rem;
+      transition: all 0.15s ease;
+    }
+    .btn-auth-logout:hover {
+      background-color: var(--bg-surface-elevated);
+      color: var(--text-primary);
+    }
+    .user-profile-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 9999px;
+      padding: 0.25rem 0.75rem 0.25rem 0.375rem;
+    }
+    .user-avatar-circle {
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+    }
+    .user-display-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Modal Backdrop */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.25);
+      width: 100%;
+      max-width: 420px;
+      padding: 1.75rem;
+      animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96) translateY(-8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.25rem;
+    }
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+    .modal-subtitle {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 0.25rem;
+      transition: color 0.15s ease;
+    }
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+    .modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+    }
+    .form-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+    .form-input {
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: 0.375rem;
+      padding: 0.625rem 0.75rem;
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .form-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    }
+    .form-hint {
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+    }
+    .form-alert {
+      padding: 0.625rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+    }
+    .form-alert.alert-error {
+      background-color: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #ef4444;
+    }
+    .form-alert.alert-success {
+      background-color: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #10b981;
+    }
+    .btn-primary-block {
+      background-color: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 0.375rem;
+      padding: 0.625rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 0.25rem;
+      transition: background-color 0.15s ease;
+    }
+    .btn-primary-block:hover {
+      background-color: #1d4ed8;
+    }
+    .btn-primary-block:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .modal-footer-text {
+      text-align: center;
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+    }
+    .link-btn {
+      background: none;
+      border: none;
+      color: #3b82f6;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0 0.25rem;
+      font-size: 0.8125rem;
+    }
+    .link-btn:hover {
+      color: #2563eb;
+    }
+  </style>
 </head>
 <body class="theme-dark">
   <div class="app-layout">
@@ -23,6 +259,19 @@
         <button id="theme-toggle" class="btn-secondary btn-icon" title="Toggle color scheme">
           <span id="theme-icon">&#9788;</span>
         </button>
+        <div class="auth-nav-container" id="auth-nav-container">
+          <div id="guest-nav" class="auth-nav-group">
+            <button id="btn-open-login" class="btn-auth-signin">Sign In</button>
+            <button id="btn-open-register" class="btn-auth-signup">Sign Up</button>
+          </div>
+          <div id="user-nav" class="auth-nav-group" style="display: none;">
+            <div class="user-profile-badge">
+              <span class="user-avatar-circle" id="user-avatar">U</span>
+              <span class="user-display-name" id="user-display-name">User</span>
+            </div>
+            <button id="btn-logout" class="btn-auth-logout" title="Sign out">Sign Out</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -167,6 +416,69 @@
         <span>Strict Memory Budget: &lt; 20 MiB RSS</span>
       </div>
     </footer>
+  </div>
+
+  <!-- Sign In Modal -->
+  <div class="modal-backdrop" id="login-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 class="modal-title">Sign In</h3>
+          <p class="modal-subtitle">Access your GoodAI Monitor console</p>
+        </div>
+        <button class="modal-close" id="btn-close-login" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="login-form" class="modal-form">
+        <div class="form-alert" id="login-alert" style="display: none;"></div>
+        <div class="form-group">
+          <label for="login-email" class="form-label">Email Address</label>
+          <input type="email" id="login-email" class="form-input" placeholder="alex@goodai.co.nz" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="login-password" class="form-label">Password</label>
+          <input type="password" id="login-password" class="form-input" placeholder="Enter your password" required autocomplete="current-password">
+        </div>
+        <button type="submit" id="login-submit-btn" class="btn-primary-block">Sign In</button>
+        <div class="modal-footer-text">
+          <span>Don't have an account?</span>
+          <button type="button" class="link-btn" id="btn-switch-to-register">Create one</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sign Up Modal -->
+  <div class="modal-backdrop" id="register-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <h3 class="modal-title">Create Account</h3>
+          <p class="modal-subtitle">Start monitoring your services in seconds</p>
+        </div>
+        <button class="modal-close" id="btn-close-register" aria-label="Close modal">&times;</button>
+      </div>
+      <form id="register-form" class="modal-form">
+        <div class="form-alert" id="register-alert" style="display: none;"></div>
+        <div class="form-group">
+          <label for="register-name" class="form-label">Full Name</label>
+          <input type="text" id="register-name" class="form-input" placeholder="Alex Morgan" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="register-email" class="form-label">Email Address</label>
+          <input type="email" id="register-email" class="form-input" placeholder="alex@goodai.co.nz" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="register-password" class="form-label">Password</label>
+          <input type="password" id="register-password" class="form-input" placeholder="Minimum 8 characters" minlength="8" required autocomplete="new-password">
+          <span class="form-hint">Must contain at least 8 characters.</span>
+        </div>
+        <button type="submit" id="register-submit-btn" class="btn-primary-block">Create Account</button>
+        <div class="modal-footer-text">
+          <span>Already registered?</span>
+          <button type="button" class="link-btn" id="btn-switch-to-login">Sign in</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script src="app.js"></script>

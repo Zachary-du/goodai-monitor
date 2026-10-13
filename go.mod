@@ -2,4 +2,7 @@ module github.com/Zachary-du/goodai-monitor
 
 go 1.22.0
 
-require modernc.org/sqlite v1.33.1
+require (
+	golang.org/x/crypto v0.28.0
+	modernc.org/sqlite v1.33.1
+)

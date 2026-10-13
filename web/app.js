@@ -3,6 +3,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   initClock();
+  initAuth();
   pollHealth();
   setInterval(pollHealth, 5000);
 });
@@ -33,7 +34,7 @@ function initTheme() {
   }
 }
 
-// Clock Display (NZDT / UTC)
+// Clock Display (NZDT / Auckland)
 function initClock() {
   const clockEl = document.getElementById("clock-display");
   function updateClock() {
@@ -49,6 +50,212 @@ function initClock() {
   }
   updateClock();
   setInterval(updateClock, 1000);
+}
+
+// Authentication & Modal Management
+function initAuth() {
+  const guestNav = document.getElementById("guest-nav");
+  const userNav = document.getElementById("user-nav");
+  const userAvatar = document.getElementById("user-avatar");
+  const userDisplayName = document.getElementById("user-display-name");
+
+  const loginModal = document.getElementById("login-modal");
+  const registerModal = document.getElementById("register-modal");
+
+  const btnOpenLogin = document.getElementById("btn-open-login");
+  const btnOpenRegister = document.getElementById("btn-open-register");
+  const btnCloseLogin = document.getElementById("btn-close-login");
+  const btnCloseRegister = document.getElementById("btn-close-register");
+  const btnSwitchToRegister = document.getElementById("btn-switch-to-register");
+  const btnSwitchToLogin = document.getElementById("btn-switch-to-login");
+  const btnLogout = document.getElementById("btn-logout");
+
+  const loginForm = document.getElementById("login-form");
+  const registerForm = document.getElementById("register-form");
+  const loginAlert = document.getElementById("login-alert");
+  const registerAlert = document.getElementById("register-alert");
+  const loginSubmitBtn = document.getElementById("login-submit-btn");
+  const registerSubmitBtn = document.getElementById("register-submit-btn");
+
+  // Initial session verification
+  checkSession();
+
+  // Modal Open / Close Triggers
+  btnOpenLogin.addEventListener("click", () => openModal(loginModal));
+  btnOpenRegister.addEventListener("click", () => openModal(registerModal));
+  btnCloseLogin.addEventListener("click", () => closeModal(loginModal));
+  btnCloseRegister.addEventListener("click", () => closeModal(registerModal));
+
+  btnSwitchToRegister.addEventListener("click", () => {
+    closeModal(loginModal);
+    openModal(registerModal);
+  });
+
+  btnSwitchToLogin.addEventListener("click", () => {
+    closeModal(registerModal);
+    openModal(loginModal);
+  });
+
+  // Close modals when clicking backdrop
+  [loginModal, registerModal].forEach((modal) => {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) {
+        closeModal(modal);
+      }
+    });
+  });
+
+  // Close modals on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeModal(loginModal);
+      closeModal(registerModal);
+    }
+  });
+
+  // Login Form Submission
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAlert(loginAlert);
+
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+
+    if (!email || !password) {
+      showAlert(loginAlert, "Please provide both email and password.", "error");
+      return;
+    }
+
+    loginSubmitBtn.disabled = true;
+    loginSubmitBtn.textContent = "Signing In...";
+
+    try {
+      const response = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Authentication failed");
+      }
+
+      setAuthenticatedState(data.user);
+      loginForm.reset();
+      closeModal(loginModal);
+    } catch (err) {
+      showAlert(loginAlert, err.message, "error");
+    } finally {
+      loginSubmitBtn.disabled = false;
+      loginSubmitBtn.textContent = "Sign In";
+    }
+  });
+
+  // Register Form Submission
+  registerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearAlert(registerAlert);
+
+    const name = document.getElementById("register-name").value.trim();
+    const email = document.getElementById("register-email").value.trim();
+    const password = document.getElementById("register-password").value;
+
+    if (password.length < 8) {
+      showAlert(registerAlert, "Password must be at least 8 characters long.", "error");
+      return;
+    }
+
+    registerSubmitBtn.disabled = true;
+    registerSubmitBtn.textContent = "Creating Account...";
+
+    try {
+      const response = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create account");
+      }
+
+      setAuthenticatedState(data.user);
+      registerForm.reset();
+      closeModal(registerModal);
+    } catch (err) {
+      showAlert(registerAlert, err.message, "error");
+    } finally {
+      registerSubmitBtn.disabled = false;
+      registerSubmitBtn.textContent = "Create Account";
+    }
+  });
+
+  // Logout Trigger
+  btnLogout.addEventListener("click", async () => {
+    try {
+      await fetch("/api/v1/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.warn("Logout request failed:", err);
+    }
+    setGuestState();
+  });
+
+  async function checkSession() {
+    try {
+      const response = await fetch("/api/v1/auth/me", { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          setAuthenticatedState(data.user);
+          return;
+        }
+      }
+    } catch (err) {
+      // Session absent or expired
+    }
+    setGuestState();
+  }
+
+  function setAuthenticatedState(user) {
+    guestNav.style.display = "none";
+    userNav.style.display = "flex";
+
+    const displayName = user.name || user.email.split("@")[0];
+    userDisplayName.textContent = displayName;
+    userAvatar.textContent = (displayName.charAt(0) || "U").toUpperCase();
+  }
+
+  function setGuestState() {
+    guestNav.style.display = "flex";
+    userNav.style.display = "none";
+  }
+
+  function openModal(modal) {
+    modal.style.display = "flex";
+    const firstInput = modal.querySelector("input");
+    if (firstInput) {
+      setTimeout(() => firstInput.focus(), 50);
+    }
+  }
+
+  function closeModal(modal) {
+    modal.style.display = "none";
+    const alert = modal.querySelector(".form-alert");
+    if (alert) clearAlert(alert);
+  }
+
+  function showAlert(el, msg, type) {
+    el.textContent = msg;
+    el.className = `form-alert alert-${type}`;
+    el.style.display = "block";
+  }
+
+  function clearAlert(el) {
+    el.textContent = "";
+    el.style.display = "none";
+  }
 }
 
 // Health Polling
