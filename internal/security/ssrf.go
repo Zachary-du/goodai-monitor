@@ -26,11 +26,14 @@ var AllowedPorts = map[int]bool{
 	8443: true,
 }
 
-// restrictedIPNets contains pre-parsed CIDR network ranges that must never be targeted.
-var restrictedIPNets []*net.IPNet
+// restrictedIPv4Nets and restrictedIPv6Nets contain pre-parsed CIDR network ranges that must never be targeted.
+var (
+	restrictedIPv4Nets []*net.IPNet
+	restrictedIPv6Nets []*net.IPNet
+)
 
 func init() {
-	cidrs := []string{
+	ipv4CIDRs := []string{
 		// IPv4 Private and Reserved
 		"0.0.0.0/8",          // "This network" (RFC 1122)
 		"10.0.0.0/8",         // Private network (RFC 1918)
@@ -48,23 +51,30 @@ func init() {
 		"224.0.0.0/4",        // Multicast (RFC 5771)
 		"240.0.0.0/4",        // Reserved for Future Use (RFC 1112)
 		"255.255.255.255/32", // Limited Broadcast (RFC 919)
-
-		// IPv6 Private and Reserved
-		"::/128",          // Unspecified
-		"::1/128",         // Loopback
-		"::ffff:0:0/96",   // IPv4-mapped IPv6
-		"::0.0.0.0/96",    // IPv4-compatible IPv6
-		"100::/64",        // Discard prefix (RFC 6666)
-		"2001:db8::/32",   // Documentation (RFC 3849)
-		"fc00::/7",        // Unique Local Address (RFC 4193)
-		"fe80::/10",       // Link-Local Unicast (RFC 4291)
-		"ff00::/8",        // Multicast (RFC 4291)
 	}
 
-	for _, cidr := range cidrs {
+	ipv6CIDRs := []string{
+		// IPv6 Private and Reserved
+		"::/128",        // Unspecified
+		"::1/128",       // Loopback
+		"100::/64",      // Discard prefix (RFC 6666)
+		"2001:db8::/32", // Documentation (RFC 3849)
+		"fc00::/7",      // Unique Local Address (RFC 4193)
+		"fe80::/10",     // Link-Local Unicast (RFC 4291)
+		"ff00::/8",      // Multicast (RFC 4291)
+	}
+
+	for _, cidr := range ipv4CIDRs {
 		_, ipNet, err := net.ParseCIDR(cidr)
 		if err == nil && ipNet != nil {
-			restrictedIPNets = append(restrictedIPNets, ipNet)
+			restrictedIPv4Nets = append(restrictedIPv4Nets, ipNet)
+		}
+	}
+
+	for _, cidr := range ipv6CIDRs {
+		_, ipNet, err := net.ParseCIDR(cidr)
+		if err == nil && ipNet != nil {
+			restrictedIPv6Nets = append(restrictedIPv6Nets, ipNet)
 		}
 	}
 }
@@ -82,7 +92,7 @@ func IsRestrictedIP(ip net.IP) bool {
 		return true
 	}
 
-	// Handle IPv4 representation
+	// If it's an IPv4 address or IPv4-mapped IPv6, evaluate as IPv4
 	if ip4 := ip.To4(); ip4 != nil {
 		// Specific Oracle Cloud / Cloud Metadata IP check
 		if ip4[0] == 169 && ip4[1] == 254 {
@@ -92,10 +102,17 @@ func IsRestrictedIP(ip net.IP) bool {
 		if ip4.IsLoopback() || ip4.IsPrivate() || ip4.IsLinkLocalUnicast() {
 			return true
 		}
+		// Test against IPv4 CIDRs
+		for _, ipNet := range restrictedIPv4Nets {
+			if ipNet.Contains(ip4) {
+				return true
+			}
+		}
+		return false
 	}
 
-	// CIDR network matching
-	for _, ipNet := range restrictedIPNets {
+	// Test against IPv6 CIDRs
+	for _, ipNet := range restrictedIPv6Nets {
 		if ipNet.Contains(ip) {
 			return true
 		}

@@ -56,6 +56,8 @@ func TestIsRestrictedIP(t *testing.T) {
 		{"Cloudflare DNS 1.1.1.1", "1.1.1.1", false},
 		{"Example.com Public IP 93.184.216.34", "93.184.216.34", false},
 		{"Google Public IPv6 2001:4860:4860::8888", "2001:4860:4860::8888", false},
+		{"IPv4-mapped Google DNS ::ffff:8.8.8.8", "::ffff:8.8.8.8", false},
+		{"IPv4-mapped Cloudflare DNS ::ffff:1.1.1.1", "::ffff:1.1.1.1", false},
 	}
 
 	for _, tc := range tests {
