@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-003`
 - **Title**: Monitor Target Management (CRUD, Quota) & SSRF Validation Engine
-- **Current Status**: `REVIEW`
+- **Current Status**: `IN_PROGRESS`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
@@ -92,7 +92,7 @@
 ## 6. QA Verification Summary (Filled by QA / Security Agent)
 *This section is filled during `REVIEW` phase.*
 
-- **Audit Report Reference**:
-- **Verdict**: `PENDING`
-- **Audit Date**:
-- **Human Approval Request**:
+- **Audit Report Reference**: `docs/ai-team/tasks/TASK-003-monitor-crud-and-ssrf-validation-qa-report.md`
+- **Verdict**: `REJECTED`
+- **Audit Date**: 2026-10-13
+- **Human Approval Request**: Rejected back to IN_PROGRESS. Remote GitHub Actions CI failed on step 'Run Automated Unit Tests' due to unresolvable domain 'goodai.co.nz' in `internal/security/ssrf_test.go` (BUG-01). UI single-quote escaping defect identified in `web/app.js` (BUG-02).
