@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-set -e
+# GoodAI Monitor Unified Ops Runner Script
+set -euo pipefail
 
-echo "=== Pushing task/TASK-004-continuous-probing-engine to origin ==="
-git push -u origin task/TASK-004-continuous-probing-engine
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+echo "[Ops Runner] Working directory: ${PROJECT_ROOT}"
+git push origin task/TASK-004-continuous-probing-engine

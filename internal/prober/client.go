@@ -64,26 +64,26 @@ func NewClient() *Client {
 			trace.DNSStart(httptrace.DNSStartInfo{Host: host})
 		}
 
-		ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+		ipAddrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 		if trace != nil && trace.DNSDone != nil {
-			trace.DNSDone(httptrace.DNSDoneInfo{Addrs: ips, Err: err})
+			trace.DNSDone(httptrace.DNSDoneInfo{Addrs: ipAddrs, Err: err})
 		}
 
 		if err != nil {
 			return nil, fmt.Errorf("%w: lookup failed: %v", security.ErrRestrictedTargetURL, err)
 		}
-		if len(ips) == 0 {
+		if len(ipAddrs) == 0 {
 			return nil, security.ErrRestrictedTargetURL
 		}
 
-		for _, resolvedIP := range ips {
-			if security.IsRestrictedIP(resolvedIP) {
-				return nil, fmt.Errorf("%w: resolved to restricted IP %s", security.ErrRestrictedTargetURL, resolvedIP)
+		for _, addr := range ipAddrs {
+			if security.IsRestrictedIP(addr.IP) {
+				return nil, fmt.Errorf("%w: resolved to restricted IP %s", security.ErrRestrictedTargetURL, addr.IP)
 			}
 		}
 
 		// Connect to the verified IP directly to prevent TOCTOU DNS Rebinding
-		verifiedAddr := net.JoinHostPort(ips[0].String(), portStr)
+		verifiedAddr := net.JoinHostPort(ipAddrs[0].IP.String(), portStr)
 		return dialer.DialContext(ctx, network, verifiedAddr)
 	}
 
