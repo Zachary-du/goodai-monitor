@@ -4,15 +4,14 @@ FROM golang:1.22-alpine AS builder
 WORKDIR /src
 
 # Install build dependencies
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata git
 
-# Copy module files
-COPY go.mod go.sum* ./
-RUN go mod download || true
-
-# Copy source code and compile single static binary
+# Copy source code and dependency manifests
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+
+# Resolve and verify all dependencies then compile single static binary
+RUN go mod tidy && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -trimpath \
     -ldflags="-s -w" \
     -o /goodai-monitor \
