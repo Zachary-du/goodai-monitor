@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-003`
 - **Title**: Monitor Target Management (CRUD, Quota) & SSRF Validation Engine
-- **Current Status**: `REVIEW`
+- **Current Status**: `IN_PROGRESS`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
@@ -97,5 +97,5 @@
 
 - **Audit Report Reference**: `docs/ai-team/tasks/TASK-003-monitor-crud-and-ssrf-validation-qa-report.md`
 - **Verdict**: `REJECTED`
-- **Audit Date**: 2026-10-13
-- **Human Approval Request**: Rejected back to IN_PROGRESS. Remote GitHub Actions CI failed on step 'Run Automated Unit Tests' due to unresolvable domain 'goodai.co.nz' in `internal/security/ssrf_test.go` (BUG-01). UI single-quote escaping defect identified in `web/app.js` (BUG-02).
+- **Audit Date**: 2026-10-13 (Re-Audit)
+- **Human Approval Request**: Rejected back to IN_PROGRESS. Remote GitHub Actions CI failed on run 38356574339 (commit `bb88a02`). While BUG-02 was verified fixed and BUG-01 test domain was replaced, the underlying critical defect causing automated tests to fail in CI is BUG-03 in `internal/security/ssrf.go`: `::ffff:0:0/96` in `restrictedIPNets` matches all IPv4 addresses under `ip.To16()`, causing `IsRestrictedIP()` to erroneously block all valid public IPv4 destinations.
