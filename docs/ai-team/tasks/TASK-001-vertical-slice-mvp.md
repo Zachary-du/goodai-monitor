@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-001`
 - **Title**: Vertical-Slice Runnable MVP Skeleton (HTTP Server, Embedded UI Shell, SQLite WAL, CI/CD)
-- **Current Status**: `REVIEW`
+- **Current Status**: `DONE`
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-13
