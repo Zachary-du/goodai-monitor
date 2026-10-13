@@ -19,6 +19,20 @@ func setupTestCheckStore(t *testing.T) (*DB, *MonitorStore, *CheckStore) {
 		t.Fatalf("failed to open test sqlite db: %v", err)
 	}
 
+	userStore, err := NewUserStore(db)
+	if err != nil {
+		t.Fatalf("failed to initialize user store: %v", err)
+	}
+
+	_, err = userStore.CreateUser(context.Background(), &model.User{
+		Email:        "check_test@goodai.co.nz",
+		PasswordHash: "hash123",
+		Name:         "Check Test User",
+	})
+	if err != nil {
+		t.Fatalf("failed to create test user: %v", err)
+	}
+
 	monitorStore, err := NewMonitorStore(db)
 	if err != nil {
 		t.Fatalf("failed to initialize monitor store: %v", err)

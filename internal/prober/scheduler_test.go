@@ -49,6 +49,20 @@ func setupTestScheduler(t *testing.T) (*storage.DB, *storage.MonitorStore, *stor
 		t.Fatalf("failed to open sqlite database: %v", err)
 	}
 
+	userStore, err := storage.NewUserStore(db)
+	if err != nil {
+		t.Fatalf("failed to initialize user store: %v", err)
+	}
+
+	_, err = userStore.CreateUser(context.Background(), &model.User{
+		Email:        "scheduler@goodai.co.nz",
+		PasswordHash: "hash123",
+		Name:         "Scheduler Test User",
+	})
+	if err != nil {
+		t.Fatalf("failed to create test user: %v", err)
+	}
+
 	monitorStore, err := storage.NewMonitorStore(db)
 	if err != nil {
 		t.Fatalf("failed to initialize monitor store: %v", err)
