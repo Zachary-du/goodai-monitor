@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoodAI Monitor - Cloud Availability &amp; Health</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark">
+  <div class="app-layout">
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <span class="status-indicator-dot online" id="brand-indicator"></span>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">GoodAI Monitor</h1>
+          <span class="brand-subtitle">Availability &amp; Fault Diagnostics</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="clock-display" id="clock-display">--:--:-- NZDT</div>
+        <button id="theme-toggle" class="btn-secondary btn-icon" title="Toggle color scheme">
+          <span id="theme-icon">&#9788;</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <!-- System Overall Status Banner -->
+      <section class="status-banner" id="system-banner">
+        <div class="banner-content">
+          <div class="banner-status-badge badge-up" id="banner-badge">
+            <span class="pulse-dot"></span>
+            <span id="banner-status-text">OPERATIONAL</span>
+          </div>
+          <div class="banner-message">
+            <h2 id="banner-heading">All Systems Functioning Normally</h2>
+            <p id="banner-subtext">Continuous background probing active with zero detected outages.</p>
+          </div>
+        </div>
+        <div class="banner-meta">
+          <span class="meta-label">Last Polled</span>
+          <span class="meta-value" id="last-poll-time">Just now</span>
+        </div>
+      </section>
+
+      <!-- Telemetry Metric Cards -->
+      <section class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Server Uptime</span>
+            <span class="metric-icon">&#9201;</span>
+          </div>
+          <div class="metric-value" id="uptime-value">0h 0m 0s</div>
+          <div class="metric-footer">
+            <span class="badge-subtle badge-up" id="uptime-badge">Active</span>
+            <span class="metric-subtext">Since startup</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Memory Footprint (RSS)</span>
+            <span class="metric-icon">&#128190;</span>
+          </div>
+          <div class="metric-value" id="rss-value">-- MiB</div>
+          <div class="metric-footer progress-footer">
+            <div class="progress-bar-container">
+              <div class="progress-bar" id="rss-progress" style="width: 25%;"></div>
+            </div>
+            <span class="metric-subtext" id="rss-subtext">Budget: 20.0 MiB</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Database Engine</span>
+            <span class="metric-icon">&#128451;</span>
+          </div>
+          <div class="metric-value text-accent" id="db-value">SQLite WAL</div>
+          <div class="metric-footer">
+            <span class="badge-subtle badge-up" id="db-badge">Connected</span>
+            <span class="metric-subtext">Single-Writer Pool</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Runtime Goroutines</span>
+            <span class="metric-icon">&#9889;</span>
+          </div>
+          <div class="metric-value" id="goroutines-value">--</div>
+          <div class="metric-footer">
+            <span class="badge-subtle badge-pending" id="heap-badge">-- Heap</span>
+            <span class="metric-subtext">Go 1.22 Runtime</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Monitor Fleet Section -->
+      <section class="content-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <h3 class="section-title">Monitored Services</h3>
+            <span class="section-count" id="monitor-count">1 Target</span>
+          </div>
+          <div class="section-actions">
+            <span class="badge-subtle badge-up">100% Target SLA</span>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Service Name</th>
+                <th>Target URL</th>
+                <th>Check Interval</th>
+                <th>Expected Code</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="monitors-table-body">
+              <tr>
+                <td>
+                  <div class="service-cell">
+                    <span class="service-name">GoodAI Monitor Health</span>
+                    <span class="service-tags">Internal Telemetry</span>
+                  </div>
+                </td>
+                <td><code class="url-badge">GET /healthz</code></td>
+                <td>5 seconds</td>
+                <td><span class="code-badge">HTTP 200</span></td>
+                <td><span class="badge badge-up">UP</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Incident Log Section -->
+      <section class="content-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <h3 class="section-title">Recent Incident Log</h3>
+            <span class="section-count">Past 24 Hours</span>
+          </div>
+        </div>
+        <div class="empty-state">
+          <div class="empty-icon">&#10003;</div>
+          <div class="empty-title">Zero Incidents Recorded</div>
+          <div class="empty-desc">All synthetic probes completed successfully with no flapping or outages.</div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div class="footer-left">
+        <span>GoodAI Monitor</span>
+        <span class="footer-divider">&bull;</span>
+        <span>Version 1.0.0-mvp</span>
+        <span class="footer-divider">&bull;</span>
+        <span>Auckland, New Zealand</span>
+      </div>
+      <div class="footer-right">
+        <span>Strict Memory Budget: &lt; 20 MiB RSS</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
