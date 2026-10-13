@@ -12,6 +12,7 @@ import (
 
 	"github.com/Zachary-du/goodai-monitor/internal/api"
 	"github.com/Zachary-du/goodai-monitor/internal/config"
+	"github.com/Zachary-du/goodai-monitor/internal/prober"
 	"github.com/Zachary-du/goodai-monitor/internal/storage"
 )
 
@@ -34,7 +35,19 @@ func main() {
 	}()
 	log.Printf("[INFO] SQLite database initialized in WAL mode at '%s'", cfg.StoragePath)
 
-	// 3. Initialize HTTP router and server
+	// 3. Initialize CheckStore and start continuous background probing engine
+	checkStore, err := storage.NewCheckStore(db)
+	if err != nil {
+		log.Fatalf("[FATAL] Failed to initialize check store: %v", err)
+	}
+
+	scheduler := prober.NewScheduler(checkStore, nil)
+	schedulerCtx, cancelScheduler := context.WithCancel(context.Background())
+	defer cancelScheduler()
+	scheduler.Start(schedulerCtx)
+	log.Println("[INFO] Prober background scheduler and retention engine initialized.")
+
+	// 4. Initialize HTTP router and server
 	router := api.NewRouter(db)
 	server := &http.Server{
 		Addr:              cfg.Address(),
@@ -45,7 +58,7 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	// 4. Start HTTP listener in background goroutine
+	// 5. Start HTTP listener in background goroutine
 	serverErrors := make(chan error, 1)
 	go func() {
 		log.Printf("[INFO] GoodAI Monitor HTTP server listening on http://%s", cfg.Address())
@@ -54,7 +67,7 @@ func main() {
 		}
 	}()
 
-	// 5. Intercept termination signals (SIGINT, SIGTERM)
+	// 6. Intercept termination signals (SIGINT, SIGTERM)
 	shutdownSignal := make(chan os.Signal, 1)
 	signal.Notify(shutdownSignal, os.Interrupt, syscall.SIGTERM)
 
@@ -65,7 +78,11 @@ func main() {
 	case sig := <-shutdownSignal:
 		log.Printf("[INFO] Received system signal '%s'. Initiating graceful shutdown (10s window)...", sig)
 
-		// 6. Graceful shutdown window: 10 seconds context
+		// 7. Stop background probe scheduler routines first
+		scheduler.Stop()
+		log.Println("[INFO] Background probe scheduler stopped cleanly.")
+
+		// 8. Graceful shutdown window: 10 seconds context
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
@@ -76,7 +93,7 @@ func main() {
 			log.Println("[INFO] HTTP server active listeners drained successfully.")
 		}
 
-		// 7. Flush and close database
+		// 9. Flush and close database
 		if err := db.Close(); err != nil {
 			log.Printf("[ERROR] Database flush and close failed: %v", err)
 		} else {

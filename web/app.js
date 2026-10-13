@@ -273,11 +273,13 @@ function initMonitors() {
   const addModal = document.getElementById("add-monitor-modal");
   const editModal = document.getElementById("edit-monitor-modal");
   const deleteModal = document.getElementById("delete-monitor-modal");
+  const detailsModal = document.getElementById("monitor-details-modal");
 
   const btnOpenAdd = document.getElementById("btn-open-add-monitor");
   const btnCloseAdd = document.getElementById("btn-close-add-monitor");
   const btnCloseEdit = document.getElementById("btn-close-edit-monitor");
   const btnCloseDelete = document.getElementById("btn-close-delete-modal");
+  const btnCloseDetails = document.getElementById("btn-close-details-modal");
   const btnCancelDelete = document.getElementById("btn-cancel-delete");
   const btnConfirmDelete = document.getElementById("btn-confirm-delete");
 
@@ -289,10 +291,16 @@ function initMonitors() {
   const editSubmitBtn = document.getElementById("edit-monitor-submit-btn");
 
   // Modal backdrop close listeners
-  [addModal, editModal, deleteModal].forEach((modal) => {
+  [addModal, editModal, deleteModal, detailsModal].forEach((modal) => {
     if (modal) {
       modal.addEventListener("click", (e) => {
-        if (e.target === modal) closeModal(modal);
+        if (e.target === modal) {
+          if (modal === detailsModal) {
+            closeMonitorDetailsModal();
+          } else {
+            closeModal(modal);
+          }
+        }
       });
     }
   });
@@ -308,6 +316,7 @@ function initMonitors() {
   if (btnCloseAdd) btnCloseAdd.addEventListener("click", () => closeModal(addModal));
   if (btnCloseEdit) btnCloseEdit.addEventListener("click", () => closeModal(editModal));
   if (btnCloseDelete) btnCloseDelete.addEventListener("click", () => closeModal(deleteModal));
+  if (btnCloseDetails) btnCloseDetails.addEventListener("click", () => closeMonitorDetailsModal());
   if (btnCancelDelete) btnCancelDelete.addEventListener("click", () => closeModal(deleteModal));
 
   // Add Monitor Form Submission
@@ -506,7 +515,7 @@ function renderMonitorsTable(monitors) {
     return `
       <tr data-id="${m.id}">
         <td>
-          <div class="service-cell">
+          <div class="service-cell" onclick="openMonitorDetailsModal(${m.id})" style="cursor: pointer;" title="Click to view telemetry details">
             <span class="service-name">${escapeHTML(m.name)}</span>
             ${m.keyword ? `<span class="service-tags">Assert: &quot;${escapeHTML(m.keyword)}&quot;</span>` : `<span class="service-tags">Expected: HTTP ${m.expected_status_code}</span>`}
           </div>
@@ -518,6 +527,9 @@ function renderMonitorsTable(monitors) {
         <td><span class="badge ${statusBadgeClass}">${m.status}</span></td>
         <td style="text-align: right;">
           <div class="action-btn-group">
+            <button class="btn-action" onclick="openMonitorDetailsModal(${m.id})" title="View telemetry and latency history">
+              &#128200; Details
+            </button>
             <button class="btn-action btn-action-pause" onclick="togglePauseMonitor(${m.id})" title="${pauseTitle}">
               ${pauseLabel}
             </button>
@@ -647,6 +659,247 @@ window.openDeleteMonitorModal = function(id) {
   const deleteModal = document.getElementById("delete-monitor-modal");
   openModal(deleteModal);
 };
+
+// Monitor Details View & Telemetry Management
+let currentDetailsMonitorID = null;
+let detailsPollInterval = null;
+
+window.openMonitorDetailsModal = async function(id) {
+  currentDetailsMonitorID = id;
+  const detailsModal = document.getElementById("monitor-details-modal");
+  if (!detailsModal) return;
+
+  const m = cachedMonitors.find(x => x.id === id);
+  if (m) {
+    document.getElementById("details-monitor-name").textContent = m.name;
+    document.getElementById("details-monitor-url").textContent = m.url;
+    const badge = document.getElementById("details-monitor-status-badge");
+    badge.className = `badge ${getBadgeClassForStatus(m.status)}`;
+    badge.textContent = m.status;
+  }
+
+  openModal(detailsModal);
+  await loadMonitorTelemetry(id);
+
+  // Live auto-refresh telemetry polling every 10 seconds while modal is open
+  stopDetailsPolling();
+  detailsPollInterval = setInterval(() => {
+    if (currentDetailsMonitorID) {
+      loadMonitorTelemetry(currentDetailsMonitorID);
+    }
+  }, 10000);
+};
+
+window.closeMonitorDetailsModal = function() {
+  stopDetailsPolling();
+  currentDetailsMonitorID = null;
+  const detailsModal = document.getElementById("monitor-details-modal");
+  if (detailsModal) closeModal(detailsModal);
+};
+
+function stopDetailsPolling() {
+  if (detailsPollInterval) {
+    clearInterval(detailsPollInterval);
+    detailsPollInterval = null;
+  }
+}
+
+async function loadMonitorTelemetry(id) {
+  try {
+    const [metricsRes, checksRes] = await Promise.all([
+      fetch(`/api/v1/monitors/${id}/metrics`, { cache: "no-store" }),
+      fetch(`/api/v1/monitors/${id}/checks?limit=50`, { cache: "no-store" })
+    ]);
+
+    if (metricsRes.ok) {
+      const metrics = await metricsRes.json();
+      updateDetailsMetrics(metrics);
+    }
+
+    if (checksRes.ok) {
+      const checksData = await checksRes.json();
+      renderDetailsChecksTable(checksData.checks || []);
+    }
+  } catch (err) {
+    console.warn("Failed to load monitor telemetry:", err);
+  }
+}
+
+function updateDetailsMetrics(metrics) {
+  const u24 = document.getElementById("details-uptime-24h");
+  const u7 = document.getElementById("details-uptime-7d");
+  const u30 = document.getElementById("details-uptime-30d");
+  const avgLat = document.getElementById("details-avg-latency");
+  const checksCount = document.getElementById("details-checks-count-24h");
+
+  if (u24 && typeof metrics.uptime_24h === "number") {
+    u24.textContent = `${metrics.uptime_24h.toFixed(1)}%`;
+    u24.style.color = metrics.uptime_24h >= 99 ? "var(--color-up)" : "var(--color-degraded)";
+  }
+  if (u7 && typeof metrics.uptime_7d === "number") {
+    u7.textContent = `${metrics.uptime_7d.toFixed(1)}%`;
+    u7.style.color = metrics.uptime_7d >= 99 ? "var(--color-up)" : "var(--color-degraded)";
+  }
+  if (u30 && typeof metrics.uptime_30d === "number") {
+    u30.textContent = `${metrics.uptime_30d.toFixed(1)}%`;
+    u30.style.color = metrics.uptime_30d >= 99 ? "var(--color-up)" : "var(--color-degraded)";
+  }
+  if (avgLat) {
+    avgLat.textContent = metrics.avg_latency_24h > 0 ? `${metrics.avg_latency_24h.toFixed(1)} ms` : "-- ms";
+  }
+  if (checksCount && typeof metrics.total_checks_24h === "number") {
+    checksCount.textContent = `${metrics.total_checks_24h} probes in 24h`;
+  }
+
+  renderLatencySparkline(metrics.latency_history || []);
+}
+
+function renderLatencySparkline(points) {
+  const svg = document.getElementById("details-latency-chart");
+  if (!svg) return;
+
+  if (!points || points.length === 0) {
+    svg.innerHTML = `
+      <text x="380" y="85" text-anchor="middle" fill="var(--text-muted)" font-size="13">
+        No check telemetry recorded yet. Background prober will populate live samples.
+      </text>
+    `;
+    return;
+  }
+
+  const width = 760;
+  const height = 160;
+  const padX = 45;
+  const padY = 25;
+  const innerW = width - padX * 2;
+  const innerH = height - padY * 2;
+
+  let latencies = points.map(p => p.latency_ms);
+  let minLat = Math.min(...latencies);
+  let maxLat = Math.max(...latencies);
+  if (maxLat === minLat) {
+    maxLat = minLat + 10;
+  }
+
+  const scaleX = (i) => padX + (i / Math.max(points.length - 1, 1)) * innerW;
+  const scaleY = (val) => padY + innerH - ((val - minLat) / (maxLat - minLat)) * innerH;
+
+  const coordinates = points.map((p, i) => ({
+    x: scaleX(i),
+    y: scaleY(p.latency_ms),
+    point: p
+  }));
+
+  const pathD = coordinates.reduce((acc, c, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`, "");
+  const areaD = `${pathD} L ${coordinates[coordinates.length - 1].x.toFixed(1)} ${height - padY} L ${coordinates[0].x.toFixed(1)} ${height - padY} Z`;
+
+  const midLat = Math.round((minLat + maxLat) / 2);
+  const yMax = scaleY(maxLat);
+  const yMid = scaleY(midLat);
+  const yMin = scaleY(minLat);
+
+  let dotsSvg = "";
+  if (points.length <= 40) {
+    dotsSvg = coordinates.map(c => `
+      <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3" fill="${c.point.status === 'UP' ? 'var(--color-up)' : 'var(--color-down)'}">
+        <title>${c.point.latency_ms} ms (${c.point.status})</title>
+      </circle>
+    `).join("");
+  }
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="latencyGradient" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#2563eb" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#2563eb" stop-opacity="0.0"/>
+      </linearGradient>
+    </defs>
+    <!-- Grid Lines & Latency Labels -->
+    <line x1="${padX}" y1="${yMax.toFixed(1)}" x2="${width - padX}" y2="${yMax.toFixed(1)}" stroke="var(--border-color)" stroke-dasharray="3,3"/>
+    <text x="${padX - 8}" y="${(yMax + 4).toFixed(1)}" text-anchor="end" fill="var(--text-muted)" font-size="10">${maxLat}ms</text>
+
+    <line x1="${padX}" y1="${yMid.toFixed(1)}" x2="${width - padX}" y2="${yMid.toFixed(1)}" stroke="var(--border-color)" stroke-dasharray="3,3"/>
+    <text x="${padX - 8}" y="${(yMid + 4).toFixed(1)}" text-anchor="end" fill="var(--text-muted)" font-size="10">${midLat}ms</text>
+
+    <line x1="${padX}" y1="${yMin.toFixed(1)}" x2="${width - padX}" y2="${yMin.toFixed(1)}" stroke="var(--border-color)" stroke-dasharray="3,3"/>
+    <text x="${padX - 8}" y="${(yMin + 4).toFixed(1)}" text-anchor="end" fill="var(--text-muted)" font-size="10">${minLat}ms</text>
+
+    <!-- Gradient Fill Area -->
+    <path d="${areaD}" fill="url(#latencyGradient)"/>
+
+    <!-- Latency Curve -->
+    <path d="${pathD}" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Interactive Data Points -->
+    ${dotsSvg}
+  `;
+}
+
+function renderDetailsChecksTable(checks) {
+  const tbody = document.getElementById("details-checks-table-body");
+  const countLabel = document.getElementById("details-checks-table-count");
+  if (!tbody) return;
+
+  if (countLabel) {
+    countLabel.textContent = `Showing ${checks.length} recent probes`;
+  }
+
+  if (checks.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+          No check executions recorded yet.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = checks.map(c => {
+    const badgeClass = getBadgeClassForStatus(c.status);
+    const timeStr = formatTimestamp(c.created_at);
+    const codeDisplay = c.status_code > 0 ? c.status_code : "--";
+    const codeColor = c.status_code >= 200 && c.status_code < 400 ? "var(--color-up)" : "var(--color-down)";
+
+    let diagText = `<span style="color: var(--color-up);">&#10003; Healthy</span>`;
+    if (c.error_message) {
+      diagText = `<span style="color: var(--color-down); font-weight: 500;">${escapeHTML(c.error_message)}</span>`;
+    } else if (c.cert_expiry_days !== undefined && c.cert_expiry_days !== null) {
+      diagText = `<span style="color: var(--text-secondary);">Cert: ${c.cert_expiry_days}d remaining</span>`;
+    }
+
+    const timings = `DNS: ${c.dns_lookup_ms}ms &bull; TCP: ${c.tcp_connect_ms}ms &bull; TLS: ${c.tls_handshake_ms}ms &bull; TTFB: ${c.ttfb_ms}ms`;
+
+    return `
+      <tr>
+        <td style="font-family: var(--font-mono); font-size: 0.75rem; white-space: nowrap;">${timeStr}</td>
+        <td><span class="badge ${badgeClass}" style="font-size: 0.6875rem; padding: 0.15rem 0.45rem;">${c.status}</span></td>
+        <td><span style="font-family: var(--font-mono); font-weight: 600; color: ${codeColor};">${codeDisplay}</span></td>
+        <td><span style="font-family: var(--font-mono); font-weight: 600;">${c.latency_ms} ms</span></td>
+        <td style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">${timings}</td>
+        <td style="font-size: 0.75rem;">${diagText}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function formatTimestamp(isoStr) {
+  if (!isoStr) return "--";
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleString("en-NZ", {
+      timeZone: "Pacific/Auckland",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+  } catch (e) {
+    return isoStr;
+  }
+}
 
 function startMonitorPolling() {
   stopMonitorPolling();
