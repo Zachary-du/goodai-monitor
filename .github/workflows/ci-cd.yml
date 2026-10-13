@@ -99,17 +99,32 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Build and Push Docker Image
+      - name: Build Docker Image
         run: |
           IMAGE_NAME="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')"
-          echo "Target image: ${IMAGE_NAME}"
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> "$GITHUB_ENV"
           docker build \
             -t "${IMAGE_NAME}:latest" \
             -t "${IMAGE_NAME}:${{ github.sha }}" \
             .
+
+      - name: Save Docker Image Archive
+        run: |
+          mkdir -p dist
+          docker save "${IMAGE_NAME}:latest" | gzip > dist/goodai-monitor-docker.tar.gz
+
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goodai-monitor-docker-image
+          path: dist/goodai-monitor-docker.tar.gz
+          retention-days: 14
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push Image to GHCR
+        run: |
           docker push "${IMAGE_NAME}:latest"
           docker push "${IMAGE_NAME}:${{ github.sha }}"

@@ -6,16 +6,17 @@ WORKDIR /src
 # Install build dependencies
 RUN apk add --no-cache ca-certificates tzdata
 
-# Cache Go modules
+# Copy module files
 COPY go.mod go.sum* ./
-RUN go mod download
+RUN go mod download || true
 
-# Copy source code and build single static binary
+# Copy source code and compile single static binary
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-s -w -extldflags '-static'" \
     -trimpath \
-    -o /goodai-monitor ./cmd/monitor
+    -ldflags="-s -w" \
+    -o /goodai-monitor \
+    ./cmd/monitor
 
 # Stage 2: Minimal hardened runtime image
 FROM alpine:3.20
