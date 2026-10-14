@@ -28,5 +28,7 @@ All task files maintain their current state in the metadata header:
 | [TASK-005](TASK-005-incident-lifecycle-and-email-alerts.md) | Incident State Machine & Email Alerts | `DONE` | TASK-001..004 | N=2 failure confirm, M=2 recovery, deduplication, SMTP email alert dispatcher |
 | [TASK-006](TASK-006-containerization-and-deployment.md) | Containerization & VPS Deployment Pipeline | `DONE` | TASK-001..005 | Alpine multi-stage Dockerfile, CI binary + image artifacts, VPS deployment scripts |
 | [TASK-007](TASK-007-modern-landing-page.md) | Modern Full-Screen Hero Landing Page & Bento Showcase | `DONE` | TASK-001..006 | Full-screen hero section, bento telemetry cards, 4 architectural pillars, view switching |
-| [BUG-007-01](BUG-007-01-cache-and-visual-polish.md) | Cache Synchronization & Modern Landing Visual Polish | `BACKLOG` | TASK-007 | Static asset cache-busting (?v=...), HTTP Cache-Control headers in router, button styling reset |
+| [BUG-007-01](BUG-007-01-cache-and-visual-polish.md) | Cache Synchronization & Modern Landing Visual Polish | `DONE` | TASK-007 | Static asset cache-busting (?v=...), HTTP Cache-Control headers in router, button styling reset |
+| [TASK-008](TASK-008-security-audit-and-ai-defense-report.md) | Web Security & AI Defense Audit with Standalone Report | `DONE` | TASK-001..003 | AI bot governance, HTTP headers, TLS posture, sensitive probes, 0-100 score, HTML export |
+| [TASK-009](TASK-009-google-oauth-sso.md) | Google Account Single Sign-On (OAuth 2.0 / OIDC) | `READY` | TASK-001, TASK-002 | Google OAuth login, CSRF state nonce, code exchange, account linking, UI Google button |
 
