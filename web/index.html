@@ -985,6 +985,186 @@
           </div>
         </div>
       </section>
+
+      <!-- Web Security & AI Defense Audit Section (AC-6) -->
+      <section class="content-section" id="security-audit-section">
+        <div class="section-header">
+          <div class="section-title-wrap">
+            <h3 class="section-title">Web Security &amp; AI Defense Audit</h3>
+            <span class="section-count" id="audit-status-badge">SSRF-Protected Prober</span>
+          </div>
+          <div class="section-actions">
+            <button id="btn-export-security-report" class="btn-primary-sm" style="display: none;">
+              &#128196; Export Executive Security Report
+            </button>
+          </div>
+        </div>
+
+        <!-- Target Selection Control Bar -->
+        <div class="audit-control-bar">
+          <div class="audit-input-wrap">
+            <label for="audit-target-url" class="audit-input-label">Target URL</label>
+            <input type="url" id="audit-target-url" class="form-input audit-input" placeholder="https://goodai.co.nz" value="https://goodai.co.nz">
+          </div>
+          <div class="audit-select-wrap">
+            <label for="audit-target-select" class="audit-input-label">Quick Select</label>
+            <select id="audit-target-select" class="form-input audit-select">
+              <option value="">Choose Monitored Target...</option>
+            </select>
+          </div>
+          <div class="audit-btn-wrap">
+            <button id="btn-run-audit" class="btn-primary-sm btn-audit-trigger">
+              <span id="audit-btn-spinner" class="spinner-small" style="display: none;"></span>
+              <span id="audit-btn-text">&#9654; Run Security Audit</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Audit Alert / Feedback Banner -->
+        <div id="audit-alert-banner" class="alert alert-error" style="display: none; margin-top: 1rem;"></div>
+
+        <!-- Empty / Initial State -->
+        <div class="empty-state" id="audit-empty-state">
+          <div class="empty-icon">&#128737;</div>
+          <div class="empty-title">Ready for Multi-Vector Security Inspection</div>
+          <div class="empty-desc">Enter any public URL above or select a monitored target to audit AI crawler policies, HTTP security headers, TLS cryptography, and surface exposures.</div>
+        </div>
+
+        <!-- Audit Results Container (hidden initially) -->
+        <div id="audit-results-container" style="display: none; flex-direction: column; gap: 1.5rem; margin-top: 1.5rem;">
+          <!-- Scoreboard Grid: Gauge + 4 Domains -->
+          <div class="audit-scoreboard-grid">
+            <!-- Left: Composite Score Gauge Card -->
+            <div class="audit-gauge-card">
+              <div class="gauge-header">
+                <span class="gauge-title">Composite Score</span>
+                <span class="badge-subtle badge-up" id="audit-gauge-shield-badge">SSRF Shield Active</span>
+              </div>
+              <div class="gauge-visual-wrap">
+                <svg class="score-wheel-svg" viewBox="0 0 160 160">
+                  <circle class="score-wheel-bg" cx="80" cy="80" r="68" />
+                  <circle class="score-wheel-fill" id="score-wheel-progress" cx="80" cy="80" r="68" stroke-dasharray="427.26" stroke-dashoffset="427.26" />
+                </svg>
+                <div class="gauge-inner-content">
+                  <span class="gauge-score-number" id="audit-score-number">--</span>
+                  <span class="gauge-score-max">/ 100</span>
+                </div>
+              </div>
+              <div class="gauge-grade-badge-wrap">
+                <span class="audit-grade-pill grade-pill-a" id="audit-grade-pill">GRADE --</span>
+                <span class="audit-grade-desc" id="audit-grade-label">Awaiting inspection</span>
+              </div>
+              <div class="gauge-meta-list">
+                <div class="gauge-meta-row">
+                  <span class="meta-label">Audited Host</span>
+                  <span class="meta-val" id="audit-meta-host">--</span>
+                </div>
+                <div class="gauge-meta-row">
+                  <span class="meta-label">Target IP</span>
+                  <span class="meta-val" id="audit-meta-ip">--</span>
+                </div>
+                <div class="gauge-meta-row">
+                  <span class="meta-label">Audit Time</span>
+                  <span class="meta-val" id="audit-meta-timestamp">--</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: 4 Domain Breakdown Cards -->
+            <div class="audit-domains-container">
+              <div class="audit-domain-card" id="domain-card-ai">
+                <div class="domain-card-header">
+                  <div class="domain-info-wrap">
+                    <span class="domain-card-name">1. AI Bot &amp; Scraper Governance</span>
+                    <span class="domain-card-sub" id="domain-sub-ai">robots.txt, llms.txt, security.txt</span>
+                  </div>
+                  <span class="domain-score-pill" id="domain-pill-ai">-- / 25 pts</span>
+                </div>
+                <div class="domain-progress-bar-bg">
+                  <div class="domain-progress-bar-fill" id="domain-fill-ai" style="width: 0%;"></div>
+                </div>
+                <div class="domain-status-note" id="domain-note-ai">Evaluating AI crawler policies...</div>
+              </div>
+
+              <div class="audit-domain-card" id="domain-card-headers">
+                <div class="domain-card-header">
+                  <div class="domain-info-wrap">
+                    <span class="domain-card-name">2. HTTP Security Headers Posture</span>
+                    <span class="domain-card-sub" id="domain-sub-headers">CSP, HSTS, X-Frame, Nosniff, Referrer</span>
+                  </div>
+                  <span class="domain-score-pill" id="domain-pill-headers">-- / 25 pts</span>
+                </div>
+                <div class="domain-progress-bar-bg">
+                  <div class="domain-progress-bar-fill" id="domain-fill-headers" style="width: 0%;"></div>
+                </div>
+                <div class="domain-status-note" id="domain-note-headers">Evaluating response headers...</div>
+              </div>
+
+              <div class="audit-domain-card" id="domain-card-tls">
+                <div class="domain-card-header">
+                  <div class="domain-info-wrap">
+                    <span class="domain-card-name">3. Transport &amp; TLS Cryptography</span>
+                    <span class="domain-card-sub" id="domain-sub-tls">TLS 1.3 protocol, Cert validity, SAN matching</span>
+                  </div>
+                  <span class="domain-score-pill" id="domain-pill-tls">-- / 25 pts</span>
+                </div>
+                <div class="domain-progress-bar-bg">
+                  <div class="domain-progress-bar-fill" id="domain-fill-tls" style="width: 0%;"></div>
+                </div>
+                <div class="domain-status-note" id="domain-note-tls">Evaluating cryptographic handshake...</div>
+              </div>
+
+              <div class="audit-domain-card" id="domain-card-exposure">
+                <div class="domain-card-header">
+                  <div class="domain-info-wrap">
+                    <span class="domain-card-name">4. Exposure &amp; Surface Shield</span>
+                    <span class="domain-card-sub" id="domain-sub-exposure">/.env, /.git/HEAD, /swagger, /openapi.json</span>
+                  </div>
+                  <span class="domain-score-pill" id="domain-pill-exposure">-- / 25 pts</span>
+                </div>
+                <div class="domain-progress-bar-bg">
+                  <div class="domain-progress-bar-fill" id="domain-fill-exposure" style="width: 0%;"></div>
+                </div>
+                <div class="domain-status-note" id="domain-note-exposure">Evaluating sensitive surface probes...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Findings Register Table -->
+          <div class="audit-findings-section">
+            <div class="findings-filter-bar">
+              <div class="findings-title-wrap">
+                <h4 class="findings-section-title">Detailed Vector Findings Register</h4>
+                <span class="findings-count-badge" id="findings-total-count">0 Checks</span>
+              </div>
+              <div class="findings-filters">
+                <button class="findings-filter-btn active" data-filter="ALL" id="filter-findings-all">All (<span id="count-all">0</span>)</button>
+                <button class="findings-filter-btn" data-filter="CRITICAL" id="filter-findings-critical">Critical (<span id="count-critical">0</span>)</button>
+                <button class="findings-filter-btn" data-filter="HIGH" id="filter-findings-high">High (<span id="count-high">0</span>)</button>
+                <button class="findings-filter-btn" data-filter="MEDIUM" id="filter-findings-medium">Medium (<span id="count-medium">0</span>)</button>
+                <button class="findings-filter-btn" data-filter="LOW" id="filter-findings-low">Low (<span id="count-low">0</span>)</button>
+                <button class="findings-filter-btn" data-filter="PASS" id="filter-findings-pass">Pass (<span id="count-pass">0</span>)</button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table" id="audit-findings-table">
+                <thead>
+                  <tr>
+                    <th style="width: 100px;">Severity</th>
+                    <th style="width: 160px;">Domain</th>
+                    <th style="width: 220px;">Vector Check</th>
+                    <th>Observed Result &amp; Recommendation</th>
+                    <th style="text-align: right; width: 140px;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-findings-body">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
       </div> <!-- End #dashboard-view -->
     </main>
 
