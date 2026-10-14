@@ -217,6 +217,19 @@ function initAuth() {
     showToast("Signed out successfully.", "info");
   });
 
+  // Hero CTA Triggers
+  document.querySelectorAll(".btn-launch-free").forEach((btn) => {
+    btn.addEventListener("click", () => openModal(registerModal));
+  });
+
+  const btnExplore = document.getElementById("btn-explore-telemetry");
+  if (btnExplore) {
+    btnExplore.addEventListener("click", () => {
+      const target = document.getElementById("hero-showcase") || document.getElementById("live-status-section");
+      if (target) target.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
   async function checkSession() {
     try {
       const response = await fetch("/api/v1/auth/me", { cache: "no-store" });
@@ -238,6 +251,11 @@ function initAuth() {
     guestNav.style.display = "none";
     userNav.style.display = "flex";
 
+    const landingView = document.getElementById("landing-view");
+    const dashboardView = document.getElementById("dashboard-view");
+    if (landingView) landingView.style.display = "none";
+    if (dashboardView) dashboardView.style.display = "flex";
+
     const displayName = user.name || user.email.split("@")[0];
     userDisplayName.textContent = displayName;
     userAvatar.textContent = (displayName.charAt(0) || "U").toUpperCase();
@@ -258,6 +276,11 @@ function initAuth() {
     cachedMonitors = [];
     guestNav.style.display = "flex";
     userNav.style.display = "none";
+
+    const landingView = document.getElementById("landing-view");
+    const dashboardView = document.getElementById("dashboard-view");
+    if (landingView) landingView.style.display = "flex";
+    if (dashboardView) dashboardView.style.display = "none";
 
     // Hide authenticated monitor controls
     const btnOpenAdd = document.getElementById("btn-open-add-monitor");
@@ -1174,6 +1197,32 @@ function updateUIWithHealthData(data) {
   if (heapBadge && typeof data.go_heap_alloc_bytes === "number") {
     const heapMib = (data.go_heap_alloc_bytes / (1024 * 1024)).toFixed(1);
     heapBadge.textContent = `${heapMib} MiB Heap`;
+  }
+
+  // Update Landing Page Live Telemetry Proof widgets
+  const landingUptime = document.getElementById("landing-uptime-val");
+  const landingRss = document.getElementById("landing-rss-val");
+  const landingGoro = document.getElementById("landing-goroutines-val");
+  const landingBadge = document.getElementById("landing-telemetry-badge");
+
+  if (landingUptime && typeof data.uptime_seconds === "number") {
+    landingUptime.textContent = formatUptime(data.uptime_seconds);
+  }
+  if (landingRss && typeof data.memory_rss_bytes === "number") {
+    const mib = data.memory_rss_bytes / (1024 * 1024);
+    landingRss.textContent = `${mib.toFixed(1)} MiB`;
+  }
+  if (landingGoro && typeof data.go_goroutine_count === "number") {
+    landingGoro.textContent = `Active Goroutines: ${data.go_goroutine_count}`;
+  }
+  if (landingBadge) {
+    if (data.status === "ok" && data.database === "connected") {
+      landingBadge.textContent = "100% OPERATIONAL";
+      if (landingBadge.parentElement) landingBadge.parentElement.className = "banner-status-badge badge-up";
+    } else {
+      landingBadge.textContent = "DEGRADED";
+      if (landingBadge.parentElement) landingBadge.parentElement.className = "banner-status-badge badge-degraded";
+    }
   }
 
   // Update System Status Banner
