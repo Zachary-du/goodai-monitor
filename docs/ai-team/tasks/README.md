@@ -25,4 +25,8 @@ All task files maintain their current state in the metadata header:
 | [TASK-002](TASK-002-user-auth-and-isolation.md) | User Auth & Multi-Tenant Isolation | `BACKLOG` | TASK-001 | User registration, login, bcrypt password hashing, secure session cookies, row-level isolation |
 | [TASK-003](TASK-003-monitor-crud-and-ssrf-validation.md) | Monitor Target Management & SSRF Guard | `BACKLOG` | TASK-001, TASK-002 | Target CRUD API, quota (max 10), strict SafeDialer blocking private/IMDS IPs |
 | [TASK-004](TASK-004-continuous-probing-engine.md) | Continuous Background Probing Engine | `BACKLOG` | TASK-001..003 | Concurrent scheduler, DNS/TCP/TLS/HTTP/Keyword telemetry, 14-day retention cleaner |
-| [TASK-005](TASK-005-incident-lifecycle-and-email-alerts.md) | Incident State Machine & Email Alerts | `BACKLOG` | TASK-001..004 | N=2 failure confirm, M=2 recovery, deduplication, SMTP email alert dispatcher |
+| [TASK-005](TASK-005-incident-lifecycle-and-email-alerts.md) | Incident State Machine & Email Alerts | `DONE` | TASK-001..004 | N=2 failure confirm, M=2 recovery, deduplication, SMTP email alert dispatcher |
+| [TASK-006](TASK-006-containerization-and-deployment.md) | Containerization & VPS Deployment Pipeline | `DONE` | TASK-001..005 | Alpine multi-stage Dockerfile, CI binary + image artifacts, VPS deployment scripts |
+| [TASK-007](TASK-007-modern-landing-page.md) | Modern Full-Screen Hero Landing Page & Bento Showcase | `DONE` | TASK-001..006 | Full-screen hero section, bento telemetry cards, 4 architectural pillars, view switching |
+| [BUG-007-01](BUG-007-01-cache-and-visual-polish.md) | Cache Synchronization & Modern Landing Visual Polish | `BACKLOG` | TASK-007 | Static asset cache-busting (?v=...), HTTP Cache-Control headers in router, button styling reset |
+

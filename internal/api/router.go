@@ -3,6 +3,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -73,9 +74,8 @@ func NewRouter(db *storage.DB) http.Handler {
 		mux.HandleFunc("/api/v1/incidents/summary", RequireAuth(IncidentSummaryHandler(incidentStore)))
 	}
 
-	// Embedded web UI static assets
-	fileServer := http.FileServer(http.FS(web.Files))
-	mux.Handle("/", fileServer)
+	// Embedded web UI static assets with explicit Cache-Control headers
+	mux.Handle("/", staticAssetHandler(http.FS(web.Files)))
 
 	var handler http.Handler = mux
 	if userStore != nil {
@@ -134,5 +134,32 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		next.ServeHTTP(w, r)
+	})
+}
+
+// staticAssetHandler wraps an http.FileSystem with explicit HTTP Cache-Control headers.
+// Document routes (/ and /index.html) receive:
+//   Cache-Control: no-cache, no-store, must-revalidate
+// so clients and edge reverse proxies (Cloudflare) always revalidate the HTML document.
+// Static asset routes (.css, .js, etc.) receive:
+//   Cache-Control: public, max-age=86400, must-revalidate
+// enabling edge caching while invalidating immediately via asset version query parameters (?v=...).
+func staticAssetHandler(fs http.FileSystem) http.Handler {
+	fileServer := http.FileServer(fs)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cleanPath := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+		if cleanPath == "" || cleanPath == "index.html" || cleanPath == "." {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			// Normalize /index.html to / so http.FileServer directly serves index.html with HTTP 200
+			// rather than returning an HTTP 301 redirect to ./
+			if cleanPath == "index.html" {
+				r = r.Clone(r.Context())
+				r.URL.Path = "/"
+				r.URL.RawPath = ""
+			}
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate")
+		}
+		fileServer.ServeHTTP(w, r)
 	})
 }

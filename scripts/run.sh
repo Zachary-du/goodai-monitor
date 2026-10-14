@@ -5,9 +5,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
-echo "=== Packaging and pushing TASK-006 updates ==="
-git status
-git add -A
-git commit -m "fix(ci): optimize Dockerfile build flags and add docker tarball artifact (TASK-006)" || echo "No changes to commit"
-git push origin task/TASK-006-containerization-and-deployment
-echo "=== Pushed branch task/TASK-006-containerization-and-deployment ==="
+echo "=== 1. Committing scripts/run.sh on task/BUG-007-01-cache-and-visual-polish ==="
+git add scripts/run.sh
+git commit -m "chore(ops): update scripts/run.sh for VPS deployment" || true
+git push origin task/BUG-007-01-cache-and-visual-polish
+
+echo "=== 2. Merging task/BUG-007-01-cache-and-visual-polish into main ==="
+git checkout main
+git pull origin main
+git merge --no-ff task/BUG-007-01-cache-and-visual-polish -m "Merge task/BUG-007-01-cache-and-visual-polish into main (Cache-Busting & Visual Polish)"
+git push origin main
+
+echo "=== 3. Inspecting running containers on Melbourne VPS ==="
+ssh -i key/158.179.29.27.key -p 60324 -o StrictHostKeyChecking=no ubuntu@158.179.29.27 "docker ps"
+
+echo "=== 4. Completed Git Merge and Push ==="
