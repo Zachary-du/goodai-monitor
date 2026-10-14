@@ -5,9 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
-echo "=== 1. Committing and pushing cache-busting version bump on main ==="
-git add web/index.html scripts/run.sh
-git commit -m "fix(cache): bump static assets version query parameter to v=20261014-08" || true
+echo "=== 1. Committing and pushing Option 3 Brand Logo to main ==="
+git add web/logo.svg web/embed.go web/index.html web/style.css scripts/run.sh
+git commit -m "feat(branding): implement Option 3 Pulse Waveform Monogram as brand logo and favicon" || true
 git push origin main
 
 echo "=== 2. Waiting 50s for GitHub Actions remote CI to finish compilation ==="
@@ -19,7 +19,7 @@ set -e
 cd /opt/goodai-monitor
 echo "Pulling latest container image from GHCR..."
 docker compose pull
-echo "Recreating goodai-monitor container..."
+echo "Recreating goodai-monitor container with official brand logo..."
 docker compose up -d
 echo "Waiting 5 seconds for healthcheck..."
 sleep 5
@@ -31,13 +31,10 @@ echo "=== 4. Public Verification against https://goodai.co.nz ==="
 echo "--- Root / Response Headers ---"
 curl -sI https://goodai.co.nz/
 
-echo "--- Versioned style.css?v=20261014-08 Response Headers ---"
-curl -sI "https://goodai.co.nz/style.css?v=20261014-08"
+echo "--- logo.svg Response Headers ---"
+curl -sI "https://goodai.co.nz/logo.svg?v=20261015-01"
 
-echo "--- Versioned app.js?v=20261014-08 Response Headers ---"
-curl -sI "https://goodai.co.nz/app.js?v=20261014-08"
+echo "--- Byte size of logo.svg ---"
+curl -s "https://goodai.co.nz/logo.svg?v=20261015-01" | wc -c
 
-echo "--- Byte size of Versioned app.js?v=20261014-08 ---"
-curl -s "https://goodai.co.nz/app.js?v=20261014-08" | wc -c
-
-echo "=== Deployment and Verification Complete ==="
+echo "=== Brand Logo Deployment Complete ==="

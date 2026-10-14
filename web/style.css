@@ -114,11 +114,29 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   background-color: var(--bg-surface-elevated);
   border-radius: 0.5rem;
   border: 1px solid var(--border-color);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+  transition: all 0.2s ease;
+}
+
+.logo-icon:hover {
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 16px rgba(6, 182, 212, 0.25);
+}
+
+.brand-logo-img {
+  width: 1.625rem;
+  height: 1.625rem;
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.logo-icon:hover .brand-logo-img {
+  transform: scale(1.08);
 }
 
 .brand-title {
