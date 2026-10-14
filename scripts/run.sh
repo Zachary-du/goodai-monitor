@@ -7,11 +7,15 @@ cd "$PROJECT_ROOT"
 
 BRANCH="task/TASK-008-security-audit-and-ai-defense-report"
 
-echo "=== 1. Pushing branch $BRANCH to origin ==="
-git push -u origin "$BRANCH"
+echo "=== 1. Committing scripts/run.sh on ${BRANCH} ==="
+git add scripts/run.sh
+git commit -m "chore(ops): update scripts/run.sh for TASK-008 merge" || true
+git push origin "${BRANCH}"
 
-echo "=== 2. Checking GitHub Actions Runs for $BRANCH ==="
-sleep 3
-curl -s "https://api.github.com/repos/Zachary-du/goodai-monitor/actions/runs?branch=${BRANCH}&per_page=1" | grep -E '"name"|"status"|"conclusion"|"head_branch"|"head_sha"' | head -n 10 || true
+echo "=== 2. Merging ${BRANCH} into main ==="
+git checkout main
+git pull origin main
+git merge --no-ff "${BRANCH}" -m "Merge task/TASK-008-security-audit-and-ai-defense-report into main (Web Security & AI Defense Audit)"
+git push origin main
 
-echo "=== Branch pushed and CI workflow triggered ==="
+echo "=== 3. Successfully merged and pushed main to origin ==="
