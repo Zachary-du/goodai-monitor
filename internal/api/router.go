@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Zachary-du/goodai-monitor/internal/security"
 	"github.com/Zachary-du/goodai-monitor/internal/storage"
 	"github.com/Zachary-du/goodai-monitor/web"
 )
@@ -27,6 +28,7 @@ func NewRouter(db *storage.DB) http.Handler {
 	var monitorStore *storage.MonitorStore
 	var checkStore *storage.CheckStore
 	var incidentStore *storage.IncidentStore
+	var securityStore *storage.SecurityStore
 
 	if db != nil {
 		var err error
@@ -45,6 +47,10 @@ func NewRouter(db *storage.DB) http.Handler {
 		incidentStore, err = storage.NewIncidentStore(db)
 		if err != nil {
 			log.Printf("[Router] Warning: failed to initialize incident store: %v", err)
+		}
+		securityStore, err = storage.NewSecurityStore(db)
+		if err != nil {
+			log.Printf("[Router] Warning: failed to initialize security store: %v", err)
 		}
 	}
 
@@ -72,6 +78,16 @@ func NewRouter(db *storage.DB) http.Handler {
 	if incidentStore != nil {
 		mux.HandleFunc("/api/v1/incidents", RequireAuth(ListIncidentsHandler(incidentStore)))
 		mux.HandleFunc("/api/v1/incidents/summary", RequireAuth(IncidentSummaryHandler(incidentStore)))
+	}
+
+	// Web Security & AI Defense Audit API endpoints (protected by authentication)
+	if securityStore != nil {
+		auditEngine := security.NewAuditEngine()
+		mux.HandleFunc("/api/v1/security/audit", RequireAuth(RunSecurityAuditHandler(auditEngine, securityStore, monitorStore)))
+		mux.HandleFunc("/api/v1/security/reports", RequireAuth(ListSecurityReportsHandler(securityStore)))
+		mux.HandleFunc("/api/v1/security/reports/{id}/export", RequireAuth(ExportSecurityReportHandler(securityStore)))
+		mux.HandleFunc("/api/v1/security/reports/{id}", RequireAuth(GetSecurityReportHandler(securityStore)))
+		mux.HandleFunc("/api/v1/security/reports/", RequireAuth(SecurityReportsDispatcher(securityStore)))
 	}
 
 	// Embedded web UI static assets with explicit Cache-Control headers

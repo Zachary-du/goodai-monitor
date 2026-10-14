@@ -151,3 +151,35 @@ func TestRouter_SecurityHeadersAcrossEndpoints(t *testing.T) {
 		}
 	}
 }
+
+func TestRouter_SecurityEndpoints(t *testing.T) {
+	db, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer db.Close()
+
+	router := NewRouter(db)
+
+	// Unauthenticated requests should return 401 Unauthorized
+	secEndpoints := []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodGet, path: "/api/v1/security/reports"},
+		{method: http.MethodPost, path: "/api/v1/security/audit"},
+		{method: http.MethodGet, path: "/api/v1/security/reports/1"},
+		{method: http.MethodGet, path: "/api/v1/security/reports/1/export"},
+	}
+
+	for _, ep := range secEndpoints {
+		req := httptest.NewRequest(ep.method, ep.path, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("expected 401 Unauthorized for %s %s without auth, got %d", ep.method, ep.path, rec.Code)
+		}
+	}
+}
+

@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initAuth();
   initMonitors();
   initIncidents();
+  initSecurityAudit();
   pollHealth();
   setInterval(pollHealth, 5000);
 });
@@ -268,6 +269,7 @@ function initAuth() {
 
     loadMonitors();
     loadIncidents();
+    loadLatestSecurityAuditReport();
     startMonitorPolling();
   }
 
@@ -291,6 +293,7 @@ function initAuth() {
     stopMonitorPolling();
     renderGuestMonitors();
     renderGuestIncidents();
+    resetSecurityAuditState();
   }
 }
 
@@ -499,6 +502,7 @@ async function loadMonitors() {
     cachedMonitors = data.monitors || [];
     renderMonitorsTable(cachedMonitors);
     updateQuotaBadge(cachedMonitors.length);
+    populateAuditTargetDropdown(cachedMonitors);
   } catch (err) {
     console.warn("Failed to load monitors:", err);
   }
@@ -1313,3 +1317,382 @@ function escapeHTML(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+// ==========================================================================
+// Web Security & AI Defense Audit Console Logic (AC-6)
+// ==========================================================================
+
+let activeSecurityReport = null;
+let activeFindingsFilter = "ALL";
+
+function initSecurityAudit() {
+  const btnRunAudit = document.getElementById("btn-run-audit");
+  const targetInput = document.getElementById("audit-target-url");
+  const targetSelect = document.getElementById("audit-target-select");
+  const btnExport = document.getElementById("btn-export-security-report");
+
+  if (targetSelect) {
+    targetSelect.addEventListener("change", () => {
+      if (targetSelect.value) {
+        targetInput.value = targetSelect.value;
+      }
+    });
+  }
+
+  if (btnRunAudit) {
+    btnRunAudit.addEventListener("click", () => {
+      const url = (targetInput.value || "").trim();
+      if (!url) {
+        showAuditAlert("Please enter a valid target URL (e.g. https://goodai.co.nz).");
+        return;
+      }
+      runSecurityAudit(url);
+    });
+  }
+
+  if (btnExport) {
+    btnExport.addEventListener("click", () => {
+      if (activeSecurityReport && activeSecurityReport.id) {
+        window.open(`/api/v1/security/reports/${activeSecurityReport.id}/export`, "_blank");
+      }
+    });
+  }
+
+  // Findings filter buttons
+  const filterBtns = document.querySelectorAll(".findings-filter-btn");
+  filterBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      filterBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeFindingsFilter = btn.dataset.filter || "ALL";
+      if (activeSecurityReport) {
+        renderAuditFindings(activeSecurityReport.findings || [], activeFindingsFilter);
+      }
+    });
+  });
+}
+
+function populateAuditTargetDropdown(monitors) {
+  const select = document.getElementById("audit-target-select");
+  if (!select) return;
+
+  const currentVal = select.value;
+  select.innerHTML = '<option value="">Choose Monitored Target...</option>';
+
+  if (Array.isArray(monitors)) {
+    monitors.forEach(m => {
+      if (m.url) {
+        const opt = document.createElement("option");
+        opt.value = m.url;
+        opt.textContent = `${m.name} (${m.url})`;
+        select.appendChild(opt);
+      }
+    });
+  }
+
+  if (currentVal) {
+    select.value = currentVal;
+  }
+}
+
+async function runSecurityAudit(targetURL) {
+  const btnRunAudit = document.getElementById("btn-run-audit");
+  const spinner = document.getElementById("audit-btn-spinner");
+  const btnText = document.getElementById("audit-btn-text");
+
+  clearAuditAlert();
+
+  if (btnRunAudit) btnRunAudit.disabled = true;
+  if (spinner) spinner.style.display = "inline-block";
+  if (btnText) btnText.textContent = "Auditing 24 Security Vectors...";
+
+  try {
+    const res = await fetch("/api/v1/security/audit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target_url: targetURL })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Security audit failed with status ${res.status}`);
+    }
+
+    const report = await res.json();
+    renderSecurityAuditReport(report);
+    showToast("Security & AI Defense Audit completed successfully!", "success");
+  } catch (err) {
+    console.error("Audit error:", err);
+    showAuditAlert(err.message || "Failed to execute security audit. Please ensure the target URL is valid and publicly reachable.");
+  } finally {
+    if (btnRunAudit) btnRunAudit.disabled = false;
+    if (spinner) spinner.style.display = "none";
+    if (btnText) btnText.textContent = "▶ Run Security Audit";
+  }
+}
+
+async function loadLatestSecurityAuditReport() {
+  try {
+    const res = await fetch("/api/v1/security/reports?limit=1", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.reports && data.reports.length > 0) {
+      renderSecurityAuditReport(data.reports[0]);
+    }
+  } catch (err) {
+    console.warn("Failed to load previous security report:", err);
+  }
+}
+
+function renderSecurityAuditReport(report) {
+  if (!report) return;
+  activeSecurityReport = report;
+
+  const emptyState = document.getElementById("audit-empty-state");
+  const resultsContainer = document.getElementById("audit-results-container");
+  const btnExport = document.getElementById("btn-export-security-report");
+
+  if (emptyState) emptyState.style.display = "none";
+  if (resultsContainer) resultsContainer.style.display = "flex";
+  if (btnExport) btnExport.style.display = "inline-flex";
+
+  // Score Wheel Animation
+  const scoreEl = document.getElementById("audit-score-number");
+  const wheelProgress = document.getElementById("score-wheel-progress");
+  const gradePill = document.getElementById("audit-grade-pill");
+  const gradeLabel = document.getElementById("audit-grade-label");
+
+  const score = report.composite_score || 0;
+  if (scoreEl) scoreEl.textContent = score;
+
+  // Circumference: 2 * Math.PI * 68 ≈ 427.26
+  const circumference = 427.26;
+  const offset = circumference - (score / 100) * circumference;
+  if (wheelProgress) {
+    wheelProgress.style.strokeDashoffset = offset;
+    if (score >= 85) {
+      wheelProgress.style.stroke = "#10b981";
+    } else if (score >= 70) {
+      wheelProgress.style.stroke = "#06b6d4";
+    } else if (score >= 50) {
+      wheelProgress.style.stroke = "#f59e0b";
+    } else {
+      wheelProgress.style.stroke = "#ef4444";
+    }
+  }
+
+  // Grade pill styling
+  if (gradePill) {
+    const grade = report.grade || "F";
+    gradePill.textContent = `GRADE ${grade}`;
+    gradePill.className = "audit-grade-pill";
+    if (grade.startsWith("A")) gradePill.classList.add("grade-pill-a");
+    else if (grade === "B") gradePill.classList.add("grade-pill-b");
+    else if (grade === "C") gradePill.classList.add("grade-pill-c");
+    else gradePill.classList.add("grade-pill-f");
+  }
+
+  if (gradeLabel) gradeLabel.textContent = report.grade_label || "Evaluated";
+
+  // Metadata
+  const metaHost = document.getElementById("audit-meta-host");
+  const metaIP = document.getElementById("audit-meta-ip");
+  const metaTimestamp = document.getElementById("audit-meta-timestamp");
+
+  if (metaHost) metaHost.textContent = report.target_host || "--";
+  if (metaIP) metaIP.textContent = report.target_ip || "--";
+  if (metaTimestamp) metaTimestamp.textContent = report.created_at ? new Date(report.created_at).toLocaleString("en-NZ") : "Just now";
+
+  // Render Domain Breakdown Cards
+  renderDomainScores(report.domain_scores || []);
+
+  // Update Filter Counts & Findings Table
+  updateFindingsFilterCounts(report.findings || []);
+  renderAuditFindings(report.findings || [], activeFindingsFilter);
+}
+
+function renderDomainScores(domainScores) {
+  domainScores.forEach(d => {
+    let key = d.domain_key;
+    if (!key) {
+      const name = (d.domain_name || "").toLowerCase();
+      if (name.includes("ai")) key = "ai";
+      else if (name.includes("header")) key = "headers";
+      else if (name.includes("tls") || name.includes("transport")) key = "tls";
+      else key = "exposure";
+    } else {
+      key = key.replace("ai_governance", "ai");
+    }
+
+    const pillEl = document.getElementById(`domain-pill-${key}`);
+    const fillEl = document.getElementById(`domain-fill-${key}`);
+    const noteEl = document.getElementById(`domain-note-${key}`);
+
+    if (pillEl) pillEl.textContent = `${d.score} / ${d.max_score || 25} pts`;
+    if (fillEl) {
+      const max = d.max_score || 25;
+      const pct = Math.min(100, Math.round((d.score / max) * 100));
+      fillEl.style.width = `${pct}%`;
+    }
+    if (noteEl) noteEl.textContent = d.summary || `${d.status} posture`;
+  });
+}
+
+function updateFindingsFilterCounts(findings) {
+  let all = findings.length;
+  let critical = 0, high = 0, medium = 0, low = 0, pass = 0;
+
+  findings.forEach(f => {
+    switch (f.severity) {
+      case "CRITICAL": critical++; break;
+      case "HIGH": high++; break;
+      case "MEDIUM": medium++; break;
+      case "LOW": low++; break;
+      case "PASS": pass++; break;
+    }
+  });
+
+  const setCnt = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+
+  setCnt("count-all", all);
+  setCnt("count-critical", critical);
+  setCnt("count-high", high);
+  setCnt("count-medium", medium);
+  setCnt("count-low", low);
+  setCnt("count-pass", pass);
+
+  const totalEl = document.getElementById("findings-total-count");
+  if (totalEl) totalEl.textContent = `${all} Checks`;
+}
+
+function renderAuditFindings(findings, filter) {
+  const tbody = document.getElementById("audit-findings-body");
+  if (!tbody) return;
+
+  const filtered = findings.filter(f => {
+    if (filter === "ALL") return true;
+    return f.severity === filter;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+          No findings match the selected filter "${escapeHTML(filter)}".
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((f, idx) => {
+    const hasRemediation = f.remediation && f.severity !== "PASS";
+    const drawerId = `remediation-drawer-${idx}`;
+
+    let actionCol = `<span class="badge badge-PASS" style="font-size: 0.6875rem;">Compliant</span>`;
+    if (hasRemediation) {
+      actionCol = `
+        <button class="btn-copy-remediation" onclick="toggleRemediationDrawer('${drawerId}')">
+          Remediation &darr;
+        </button>
+      `;
+    }
+
+    let domainName = f.domain;
+    if (domainName === "ai_governance") domainName = "AI Governance";
+    else if (domainName === "headers") domainName = "Security Headers";
+    else if (domainName === "tls") domainName = "TLS & Transport";
+    else if (domainName === "exposure") domainName = "Surface Exposure";
+
+    let rowHTML = `
+      <tr class="finding-row">
+        <td><span class="badge badge-${escapeHTML(f.severity)}">${escapeHTML(f.severity)}</span></td>
+        <td style="color: var(--text-secondary); font-size: 0.75rem;">${escapeHTML(domainName)}</td>
+        <td><strong>${escapeHTML(f.check_name)}</strong></td>
+        <td>
+          <div>${escapeHTML(f.observed_value)}</div>
+          ${f.recommendation ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Recommendation: ${escapeHTML(f.recommendation)}</div>` : ""}
+        </td>
+        <td style="text-align: right;">${actionCol}</td>
+      </tr>
+    `;
+
+    if (hasRemediation) {
+      rowHTML += `
+        <tr id="${drawerId}" style="display: none;">
+          <td colspan="5" style="padding: 0; background: transparent;">
+            <div class="remediation-drawer-container">
+              <div class="remediation-header">
+                <span class="remediation-label">&#128736; Recommended Configuration Remediation</span>
+                <button class="btn-copy-remediation" onclick="copyRemediationCode('${drawerId}-code', this)">
+                  Copy Configuration
+                </button>
+              </div>
+              <div class="remediation-code-block" id="${drawerId}-code">${escapeHTML(f.remediation)}</div>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    return rowHTML;
+  }).join("");
+}
+
+window.toggleRemediationDrawer = function(drawerId) {
+  const el = document.getElementById(drawerId);
+  if (!el) return;
+  if (el.style.display === "none" || el.style.display === "") {
+    el.style.display = "table-row";
+  } else {
+    el.style.display = "none";
+  }
+};
+
+window.copyRemediationCode = function(codeId, btnEl) {
+  const codeEl = document.getElementById(codeId);
+  if (!codeEl) return;
+  const text = codeEl.innerText || codeEl.textContent;
+
+  navigator.clipboard.writeText(text).then(() => {
+    const originalText = btnEl.textContent;
+    btnEl.textContent = "Copied!";
+    btnEl.style.backgroundColor = "rgba(16, 185, 129, 0.2)";
+    setTimeout(() => {
+      btnEl.textContent = originalText;
+      btnEl.style.backgroundColor = "";
+    }, 2000);
+  }).catch(err => {
+    console.error("Clipboard copy failed:", err);
+  });
+};
+
+function showAuditAlert(msg) {
+  const el = document.getElementById("audit-alert-banner");
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function clearAuditAlert() {
+  const el = document.getElementById("audit-alert-banner");
+  if (!el) return;
+  el.textContent = "";
+  el.style.display = "none";
+}
+
+function resetSecurityAuditState() {
+  activeSecurityReport = null;
+  const emptyState = document.getElementById("audit-empty-state");
+  const resultsContainer = document.getElementById("audit-results-container");
+  const btnExport = document.getElementById("btn-export-security-report");
+
+  if (emptyState) emptyState.style.display = "flex";
+  if (resultsContainer) resultsContainer.style.display = "none";
+  if (btnExport) btnExport.style.display = "none";
+  clearAuditAlert();
+}
+
