@@ -200,7 +200,6 @@ func TestSecurityHandlers_AuditAndExportFlow(t *testing.T) {
 	// 3. User 2 tries to get User 1's report (isolation check)
 	getHandler := GetSecurityReportHandler(secStore)
 	reqGetU2 := httptest.NewRequest(http.MethodGet, "/api/v1/security/reports/1", nil)
-	reqGetU2.SetPathValue("id", "1")
 	reqGetU2 = reqGetU2.WithContext(context.WithValue(reqGetU2.Context(), UserIDContextKey, user2.ID))
 	rrGetU2 := httptest.NewRecorder()
 	getHandler.ServeHTTP(rrGetU2, reqGetU2)
@@ -212,7 +211,6 @@ func TestSecurityHandlers_AuditAndExportFlow(t *testing.T) {
 	// 4. User 1 exports report HTML
 	exportHandler := ExportSecurityReportHandler(secStore)
 	reqExport := httptest.NewRequest(http.MethodGet, "/api/v1/security/reports/1/export", nil)
-	reqExport.SetPathValue("id", "1")
 	reqExport = reqExport.WithContext(context.WithValue(reqExport.Context(), UserIDContextKey, user1.ID))
 	rrExport := httptest.NewRecorder()
 	exportHandler.ServeHTTP(rrExport, reqExport)

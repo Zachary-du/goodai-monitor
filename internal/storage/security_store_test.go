@@ -20,13 +20,21 @@ func setupTestSecurityDB(t *testing.T) (*DB, *SecurityStore) {
 	}
 
 	// Create test user 1
-	_, err = userStore.CreateUser(context.Background(), "user1@example.com", "Password123!")
+	_, err = userStore.CreateUser(context.Background(), &model.User{
+		Email:        "user1@example.com",
+		PasswordHash: "Password123!",
+		Name:         "User 1",
+	})
 	if err != nil {
 		t.Fatalf("failed to create test user 1: %v", err)
 	}
 
 	// Create test user 2
-	_, err = userStore.CreateUser(context.Background(), "user2@example.com", "Password123!")
+	_, err = userStore.CreateUser(context.Background(), &model.User{
+		Email:        "user2@example.com",
+		PasswordHash: "Password123!",
+		Name:         "User 2",
+	})
 	if err != nil {
 		t.Fatalf("failed to create test user 2: %v", err)
 	}

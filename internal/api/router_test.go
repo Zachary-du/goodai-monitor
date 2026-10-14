@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Zachary-du/goodai-monitor/internal/storage"
 )
 
 func TestRouter_DocumentCacheControl(t *testing.T) {
@@ -153,7 +155,7 @@ func TestRouter_SecurityHeadersAcrossEndpoints(t *testing.T) {
 }
 
 func TestRouter_SecurityEndpoints(t *testing.T) {
-	db, err := Open(":memory:")
+	db, err := storage.Open(":memory:")
 	if err != nil {
 		t.Fatalf("failed to open test db: %v", err)
 	}
