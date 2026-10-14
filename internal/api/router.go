@@ -150,6 +150,13 @@ func staticAssetHandler(fs http.FileSystem) http.Handler {
 		cleanPath := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 		if cleanPath == "" || cleanPath == "index.html" || cleanPath == "." {
 			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			// Normalize /index.html to / so http.FileServer directly serves index.html with HTTP 200
+			// rather than returning an HTTP 301 redirect to ./
+			if cleanPath == "index.html" {
+				r = r.Clone(r.Context())
+				r.URL.Path = "/"
+				r.URL.RawPath = ""
+			}
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=86400, must-revalidate")
 		}

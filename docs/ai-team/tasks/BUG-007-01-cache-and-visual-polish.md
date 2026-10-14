@@ -80,14 +80,17 @@
 ## 5. Developer Implementation Log (Filled by Developer Agent)
 *This section is filled when transitioning the task to `REVIEW`.*
 
-- **Implementation Commit**: `beecdba`
+- **Implementation Commit**: `5b7eccf`
+- **Defect Remediation (`BUG-007-01-01`)**:
+  - **Issue**: Standard library `http.FileServer` automatically issued an HTTP 301 redirect for `/index.html` to `./`, causing unit test assertion failure.
+  - **Resolution**: Updated `staticAssetHandler` in `internal/api/router.go` to rewrite `r.URL.Path = "/"` when `cleanPath == "index.html"` before invoking `fileServer.ServeHTTP`. Requests to `/index.html` now return HTTP 200 directly with `Cache-Control: no-cache, no-store, must-revalidate`.
 - **Files Modified**:
   - `web/index.html` (Added cache-busting query strings `style.css?v=20261014-01` and `app.js?v=20261014-01`; inserted button reset fallbacks)
   - `web/style.css` (Universal button base reset, enhanced hero CTA active/focus states, glassmorphic surfaces for Bento cards & pillars, comprehensive button reset suite, and cross-device responsive breakpoints for <640px, 640-1024px, and >1024px)
-  - `internal/api/router.go` (Implemented staticAssetHandler injecting `Cache-Control: no-cache, no-store, must-revalidate` for document routes `/` and `/index.html`, and `Cache-Control: public, max-age=86400, must-revalidate` for static assets)
+  - `internal/api/router.go` (Implemented staticAssetHandler injecting `Cache-Control: no-cache, no-store, must-revalidate` for document routes `/` and `/index.html` with direct HTTP 200 serving, and `Cache-Control: public, max-age=86400, must-revalidate` for static assets)
   - `internal/api/router_test.go` (Added comprehensive unit tests covering root document and static asset Cache-Control headers and security headers)
   - `scripts/run.sh` (Configured automated git push of branch `task/BUG-007-01-cache-and-visual-polish` and curl inspection of public edge CDN)
-  - `docs/ai-team/tasks/BUG-007-01-cache-and-visual-polish.md` (Updated task specification, acceptance criteria check-off, and developer log)
+  - `docs/ai-team/tasks/BUG-007-01-cache-and-visual-polish.md` (Updated task specification, acceptance criteria check-off, defect remediation log)
 - **Automated Test Execution**:
   - Remote CI/CD Pipeline: GitHub Actions workflow triggered on push to `task/BUG-007-01-cache-and-visual-polish` (`test-and-lint`, `build-binary`, `docker-build`).
   - Unit Tests: `internal/api/router_test.go` covers `GET /`, `GET /index.html`, `GET /style.css`, `GET /style.css?v=20261014-01`, `GET /app.js`, `GET /app.js?v=20261014-01`, and security headers.
@@ -104,6 +107,6 @@
 *This section is filled during `REVIEW` phase.*
 
 - **Audit Report Reference**: `docs/ai-team/tasks/BUG-007-01-cache-and-visual-polish-qa-report.md`
-- **Verdict**: `PENDING` <!-- APPROVED | REJECTED | ACTION_REQUIRED -->
-- **Audit Date**: YYYY-MM-DD
-- **Human Approval Request**: [Ready for Human Lead merge approval / Needs developer fixes]
+- **Verdict**: `REJECTED`
+- **Audit Date**: 2026-10-14
+- **Human Approval Request**: Needs developer fixes. Reject task back to IN_PROGRESS due to unit test failure in `internal/api/router_test.go` causing GitHub Actions CI pipeline failure.
