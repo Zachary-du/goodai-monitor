@@ -88,3 +88,9 @@
 - **Verdict**: `APPROVED`
 - **Audit Date**: 2026-10-14
 - **Final Status**: `DONE` (Merged into `main` and ready for container reload on VPS).
+
+> [!WARNING]
+> **Follow-Up Remediation Notice**:
+> Live deployment verification identified edge CDN cache desynchronization (`style.css` served from Cloudflare edge cache at 537 lines vs new HTML classes on lines 538-1033) causing unstyled raw rendering on `goodai.co.nz`.
+> Follow-up remediation task created: [`BUG-007-01: Cache Synchronization & Modern Landing Visual Polish`](docs/ai-team/tasks/BUG-007-01-cache-and-visual-polish.md).
+
