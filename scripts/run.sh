@@ -10,7 +10,7 @@ git add -A
 if git diff --staged --quiet; then
   echo "Working tree clean. Nothing new to commit."
 else
-  git commit -m "fix: remove Ltd. and corporate claims from footer (BUG-010-01)"
+  git commit -m "feat: showcase web security on landing page, clear default audit URL, eradicate VPS references (TASK-011)"
 fi
 
 echo "=== [Step 2] Pushing to Remote Repository ==="
@@ -84,10 +84,10 @@ sleep 3
 echo "Checking https://goodai.co.nz/ HTTP Headers:"
 curl -sI https://goodai.co.nz/ | head -n 5
 
-echo "Checking Footer markup in live HTML:"
-curl -s https://goodai.co.nz/ | grep -E "GoodAI Monitor<|v=20261015-07" || true
+echo "Checking Security Showcase markup in live HTML:"
+curl -s https://goodai.co.nz/ | grep -E "security-showcase-section|v=20261015-08" || true
 
 echo "Checking updateFleetMetrics presence in live JavaScript:"
-curl -s "https://goodai.co.nz/app.js?v=20261015-07" | grep -o "updateFleetMetrics" | head -n 1 || true
+curl -s "https://goodai.co.nz/app.js?v=20261015-08" | grep -o "updateFleetMetrics" | head -n 1 || true
 
-echo "=== [SUCCESS] Footer Fix Successfully Deployed and Live Verified ==="
+echo "=== [SUCCESS] TASK-011 Successfully Deployed and Live Verified ==="

@@ -1449,7 +1449,7 @@ function initSecurityAudit() {
     btnRunAudit.addEventListener("click", () => {
       const url = (targetInput.value || "").trim();
       if (!url) {
-        showAuditAlert("Please enter a valid target URL (e.g. https://goodai.co.nz).");
+        showAuditAlert("Please enter a valid target URL (e.g. https://example.com).");
         return;
       }
       runSecurityAudit(url);
