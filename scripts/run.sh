@@ -7,11 +7,12 @@ cd "$PROJECT_ROOT"
 
 echo "=== [1/6] Staging and Committing QA Documentation on task branch ==="
 git checkout task/TASK-009-google-oauth-sso
+git pull --rebase origin task/TASK-009-google-oauth-sso || true
 git add docs/ai-team/tasks/TASK-009* scripts/run.sh
 if git diff --staged --quiet; then
   echo "No doc changes to commit."
 else
-  git commit -m "docs(qa): record QA audit approval and mark TASK-009 DONE"
+  git commit -m "docs(qa): finalize TASK-009 documentation and runner" || true
 fi
 git push origin task/TASK-009-google-oauth-sso
 echo "[Git] Pushed task branch to remote."
