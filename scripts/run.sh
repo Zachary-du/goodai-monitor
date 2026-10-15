@@ -5,9 +5,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
-echo "=== 1. Checking git status and pushing documentation / config updates to main ==="
-git add .env.example docs/ai-team/tasks/README.md docs/ai-team/tasks/TASK-009-google-oauth-sso.md scripts/run.sh
-git commit -m "docs: register TASK-009 Google OAuth SSO and update .env.example" || true
+echo "=== Sync documentation updates to main ==="
+git add docs/ai-team/tasks/BUG-008-02-brand-logo-rendering.md \
+        docs/ai-team/tasks/BUG-008-02-brand-logo-rendering-qa-report.md \
+        docs/ai-team/tasks/README.md \
+        scripts/run.sh
+git commit -m "docs: complete BUG-008-02 QA audit report and register resolution" || true
 git push origin main
 
 echo "=== Sync complete ==="
