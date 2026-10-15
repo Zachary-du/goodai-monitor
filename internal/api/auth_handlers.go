@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Zachary-du/goodai-monitor/internal/auth"
+	"github.com/Zachary-du/goodai-monitor/internal/config"
 	"github.com/Zachary-du/goodai-monitor/internal/model"
 	"github.com/Zachary-du/goodai-monitor/internal/storage"
 )
@@ -235,3 +237,180 @@ func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
 func isSecureRequest(r *http.Request) bool {
 	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 }
+
+// ProvidersHandler returns enabled third-party identity providers.
+// GET /api/v1/auth/providers
+func ProvidersHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		isGoogleConfigured := cfg != nil && cfg.IsGoogleOAuthConfigured()
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"google": isGoogleConfigured,
+		})
+	}
+}
+
+// GoogleLoginHandler initiates the Google OAuth 2.0 Single Sign-On handshake.
+// GET /api/v1/auth/google/login
+func GoogleLoginHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		if cfg == nil || !cfg.IsGoogleOAuthConfigured() {
+			writeJSONError(w, http.StatusServiceUnavailable, "Google Single Sign-On is not configured on this server")
+			return
+		}
+
+		state, err := auth.GenerateOAuthState()
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "Failed to generate OAuth state nonce")
+			return
+		}
+
+		secure := isSecureRequest(r)
+		http.SetCookie(w, auth.NewOAuthStateCookie(state, secure))
+
+		authURL := auth.BuildGoogleAuthURL(cfg.GoogleClientID, cfg.GoogleRedirectURI, state)
+		http.Redirect(w, r, authURL, http.StatusFound)
+	}
+}
+
+// CodeExchanger defines the function signature for exchanging an auth code with Google.
+type CodeExchanger func(ctx context.Context, clientID, clientSecret, redirectURI, code string) (*auth.GoogleTokenResponse, error)
+
+// UserInfoFetcher defines the function signature for fetching Google user profile information.
+type UserInfoFetcher func(ctx context.Context, accessToken string) (*auth.GoogleUserInfo, error)
+
+// GoogleCallbackHandler handles the OAuth 2.0 redirect callback from Google.
+// GET /api/v1/auth/google/callback
+func GoogleCallbackHandler(cfg *config.Config, store *storage.UserStore) http.HandlerFunc {
+	return GoogleCallbackHandlerWithServices(cfg, store, auth.ExchangeGoogleCode, auth.FetchGoogleUserInfo)
+}
+
+// GoogleCallbackHandlerWithServices allows injecting mock exchange and userinfo services for testing.
+func GoogleCallbackHandlerWithServices(cfg *config.Config, store *storage.UserStore, exchange CodeExchanger, fetchUserInfo UserInfoFetcher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		if cfg == nil || !cfg.IsGoogleOAuthConfigured() {
+			writeJSONError(w, http.StatusServiceUnavailable, "Google Single Sign-On is not configured on this server")
+			return
+		}
+
+		query := r.URL.Query()
+		if errParam := query.Get("error"); errParam != "" {
+			http.SetCookie(w, auth.ClearOAuthStateCookie())
+			writeJSONError(w, http.StatusBadRequest, "Google authentication was cancelled or rejected: "+errParam)
+			return
+		}
+
+		stateParam := query.Get("state")
+		code := query.Get("code")
+
+		// Retrieve oauth_state cookie
+		stateCookie, err := r.Cookie(auth.OAuthStateCookieName)
+		// Always clear the state cookie immediately to prevent replay attacks
+		http.SetCookie(w, auth.ClearOAuthStateCookie())
+
+		if err != nil || stateCookie == nil || stateCookie.Value == "" || stateParam == "" || stateCookie.Value != stateParam {
+			writeJSONError(w, http.StatusBadRequest, "Invalid or expired OAuth state parameter")
+			return
+		}
+
+		if code == "" {
+			writeJSONError(w, http.StatusBadRequest, "Authorization code is missing from Google response")
+			return
+		}
+
+		// Exchange code for Google tokens
+		tokenResp, err := exchange(r.Context(), cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURI, code)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "Failed to exchange authorization code with Google")
+			return
+		}
+
+		// Fetch user profile from Google UserInfo endpoint
+		userInfo, err := fetchUserInfo(r.Context(), tokenResp.AccessToken)
+		if err != nil {
+			if errors.Is(err, auth.ErrOAuthEmailNotVerified) {
+				writeJSONError(w, http.StatusForbidden, "Your Google email address is unverified")
+				return
+			}
+			writeJSONError(w, http.StatusBadRequest, "Failed to retrieve verified Google user profile")
+			return
+		}
+
+		// Resolve or provision user
+		var user *model.User
+		user, err = store.GetUserByGoogleID(r.Context(), userInfo.Sub)
+		if err != nil && !errors.Is(err, storage.ErrUserNotFound) {
+			writeJSONError(w, http.StatusInternalServerError, "Failed to query user by Google ID")
+			return
+		}
+
+		if user == nil {
+			// Check if existing user with matching verified email exists
+			existingEmailUser, err := store.GetUserByEmail(r.Context(), userInfo.Email)
+			if err != nil && !errors.Is(err, storage.ErrUserNotFound) {
+				writeJSONError(w, http.StatusInternalServerError, "Failed to query user by email")
+				return
+			}
+
+			if existingEmailUser != nil {
+				// Link Google ID to existing account
+				if err := store.LinkGoogleAccount(r.Context(), existingEmailUser.ID, userInfo.Sub); err != nil {
+					writeJSONError(w, http.StatusInternalServerError, "Failed to link Google account")
+					return
+				}
+				user = existingEmailUser
+			} else {
+				// Provision new Google user account
+				newUser, err := store.CreateGoogleUser(r.Context(), userInfo.Email, userInfo.Name, userInfo.Sub)
+				if err != nil {
+					writeJSONError(w, http.StatusInternalServerError, "Failed to provision user account")
+					return
+				}
+				user = newUser
+			}
+		}
+
+		// Issue authenticated session token
+		sessionToken, err := auth.GenerateSecureToken(auth.DefaultTokenBytes)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "Failed to generate session token")
+			return
+		}
+
+		expiresAt := time.Now().UTC().Add(auth.SessionDuration)
+		session := &model.Session{
+			Token:     sessionToken,
+			UserID:    user.ID,
+			CreatedAt: time.Now().UTC(),
+			ExpiresAt: expiresAt,
+		}
+
+		if err := store.CreateSession(r.Context(), session); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "Failed to persist user session")
+			return
+		}
+
+		secure := isSecureRequest(r)
+		http.SetCookie(w, auth.NewSessionCookie(sessionToken, expiresAt, secure))
+
+		// Redirect to dashboard root
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+}
+

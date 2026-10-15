@@ -122,3 +122,35 @@ func TestGetEnvInt_Invalid(t *testing.T) {
 		t.Errorf("expected fallback to 14 for invalid integer, got %d", cfg.DataRetentionDays)
 	}
 }
+
+func TestGoogleOAuthConfig(t *testing.T) {
+	t.Setenv("GOOGLE_CLIENT_ID", "")
+	t.Setenv("GOOGLE_CLIENT_SECRET", "")
+	t.Setenv("GOOGLE_REDIRECT_URI", "")
+
+	cfg := Load()
+	if cfg.IsGoogleOAuthConfigured() {
+		t.Errorf("expected IsGoogleOAuthConfigured to be false with empty env")
+	}
+	if cfg.GoogleRedirectURI != "https://goodai.co.nz/api/v1/auth/google/callback" {
+		t.Errorf("expected default redirect URI, got '%s'", cfg.GoogleRedirectURI)
+	}
+
+	t.Setenv("GOOGLE_CLIENT_ID", "test-client-id")
+	t.Setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+	t.Setenv("GOOGLE_REDIRECT_URI", "http://localhost:8090/callback")
+
+	cfg2 := Load()
+	if !cfg2.IsGoogleOAuthConfigured() {
+		t.Errorf("expected IsGoogleOAuthConfigured to be true with credentials set")
+	}
+	if cfg2.GoogleClientID != "test-client-id" {
+		t.Errorf("expected client id 'test-client-id', got '%s'", cfg2.GoogleClientID)
+	}
+	if cfg2.GoogleClientSecret != "test-client-secret" {
+		t.Errorf("expected client secret 'test-client-secret', got '%s'", cfg2.GoogleClientSecret)
+	}
+	if cfg2.GoogleRedirectURI != "http://localhost:8090/callback" {
+		t.Errorf("expected custom redirect uri, got '%s'", cfg2.GoogleRedirectURI)
+	}
+}

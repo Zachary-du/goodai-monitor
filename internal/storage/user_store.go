@@ -75,6 +75,28 @@ func (db *DB) MigrateUserSchema(ctx context.Context) error {
 		}
 	}
 
+	// Ensure google_id column exists for OAuth SSO
+	var hasGoogleID bool
+	rows, err := db.QueryContext(ctx, "PRAGMA table_info(users);")
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var cid int
+			var name, ctype string
+			var notnull, pk int
+			var dfltValue interface{}
+			if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err == nil {
+				if name == "google_id" {
+					hasGoogleID = true
+				}
+			}
+		}
+	}
+	if !hasGoogleID {
+		_, _ = db.ExecContext(ctx, "ALTER TABLE users ADD COLUMN google_id TEXT;")
+	}
+	_, _ = db.ExecContext(ctx, "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);")
+
 	return nil
 }
 
@@ -87,11 +109,11 @@ func (s *UserStore) CreateUser(ctx context.Context, u *model.User) (*model.User,
 	trimmedName := strings.TrimSpace(u.Name)
 
 	query := `
-		INSERT INTO users (email, password_hash, name, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO users (email, password_hash, name, google_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`
 
-	result, err := s.db.ExecContext(ctx, query, normalizedEmail, u.PasswordHash, trimmedName, nowStr, nowStr)
+	result, err := s.db.ExecContext(ctx, query, normalizedEmail, u.PasswordHash, trimmedName, u.GoogleID, nowStr, nowStr)
 	if err != nil {
 		errLower := strings.ToLower(err.Error())
 		if strings.Contains(errLower, "unique") || strings.Contains(errLower, "constraint") {
@@ -110,6 +132,7 @@ func (s *UserStore) CreateUser(ctx context.Context, u *model.User) (*model.User,
 		Email:        normalizedEmail,
 		PasswordHash: u.PasswordHash,
 		Name:         trimmedName,
+		GoogleID:     u.GoogleID,
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
@@ -122,7 +145,7 @@ func (s *UserStore) GetUserByEmail(ctx context.Context, email string) (*model.Us
 	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
 
 	query := `
-		SELECT id, email, password_hash, name, created_at, updated_at
+		SELECT id, email, password_hash, name, google_id, created_at, updated_at
 		FROM users
 		WHERE email = ?
 	`
@@ -131,14 +154,18 @@ func (s *UserStore) GetUserByEmail(ctx context.Context, email string) (*model.Us
 
 	var u model.User
 	var createdAtStr, updatedAtStr string
+	var gid sql.NullString
 
-	if err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &createdAtStr, &updatedAtStr); err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &gid, &createdAtStr, &updatedAtStr); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to query user by email: %w", err)
 	}
 
+	if gid.Valid {
+		u.GoogleID = &gid.String
+	}
 	u.CreatedAt = parseTimeOrNow(createdAtStr)
 	u.UpdatedAt = parseTimeOrNow(updatedAtStr)
 
@@ -148,7 +175,7 @@ func (s *UserStore) GetUserByEmail(ctx context.Context, email string) (*model.Us
 // GetUserByID queries a user record by its primary key.
 func (s *UserStore) GetUserByID(ctx context.Context, id int64) (*model.User, error) {
 	query := `
-		SELECT id, email, password_hash, name, created_at, updated_at
+		SELECT id, email, password_hash, name, google_id, created_at, updated_at
 		FROM users
 		WHERE id = ?
 	`
@@ -157,18 +184,115 @@ func (s *UserStore) GetUserByID(ctx context.Context, id int64) (*model.User, err
 
 	var u model.User
 	var createdAtStr, updatedAtStr string
+	var gid sql.NullString
 
-	if err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &createdAtStr, &updatedAtStr); err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &gid, &createdAtStr, &updatedAtStr); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to query user by id: %w", err)
 	}
 
+	if gid.Valid {
+		u.GoogleID = &gid.String
+	}
 	u.CreatedAt = parseTimeOrNow(createdAtStr)
 	u.UpdatedAt = parseTimeOrNow(updatedAtStr)
 
 	return &u, nil
+}
+
+// GetUserByGoogleID queries a user record by Google subject identifier.
+func (s *UserStore) GetUserByGoogleID(ctx context.Context, googleID string) (*model.User, error) {
+	if googleID == "" {
+		return nil, ErrUserNotFound
+	}
+
+	query := `
+		SELECT id, email, password_hash, name, google_id, created_at, updated_at
+		FROM users
+		WHERE google_id = ?
+	`
+
+	row := s.db.QueryRowContext(ctx, query, googleID)
+
+	var u model.User
+	var createdAtStr, updatedAtStr string
+	var gid sql.NullString
+
+	if err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &gid, &createdAtStr, &updatedAtStr); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("failed to query user by google id: %w", err)
+	}
+
+	if gid.Valid {
+		u.GoogleID = &gid.String
+	}
+	u.CreatedAt = parseTimeOrNow(createdAtStr)
+	u.UpdatedAt = parseTimeOrNow(updatedAtStr)
+
+	return &u, nil
+}
+
+// LinkGoogleAccount binds an existing user record to a Google subject identifier.
+func (s *UserStore) LinkGoogleAccount(ctx context.Context, userID int64, googleID string) error {
+	nowStr := time.Now().UTC().Format(time.RFC3339)
+	query := `
+		UPDATE users
+		SET google_id = ?, updated_at = ?
+		WHERE id = ?
+	`
+	res, err := s.db.ExecContext(ctx, query, googleID, nowStr, userID)
+	if err != nil {
+		return fmt.Errorf("failed to link google account: %w", err)
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// CreateGoogleUser provisions a new user account authenticated via Google OAuth.
+func (s *UserStore) CreateGoogleUser(ctx context.Context, email, name, googleID string) (*model.User, error) {
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339)
+	normalizedEmail := strings.ToLower(strings.TrimSpace(email))
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		trimmedName = strings.Split(normalizedEmail, "@")[0]
+	}
+
+	query := `
+		INSERT INTO users (email, password_hash, name, google_id, created_at, updated_at)
+		VALUES (?, '', ?, ?, ?, ?)
+	`
+
+	result, err := s.db.ExecContext(ctx, query, normalizedEmail, trimmedName, googleID, nowStr, nowStr)
+	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "unique") || strings.Contains(errLower, "constraint") {
+			return nil, ErrDuplicateEmail
+		}
+		return nil, fmt.Errorf("failed to insert google user: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve last insert id: %w", err)
+	}
+
+	gid := googleID
+	return &model.User{
+		ID:        id,
+		Email:     normalizedEmail,
+		Name:      trimmedName,
+		GoogleID:  &gid,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}, nil
 }
 
 // CreateSession persists an authenticated user session token with an expiration timestamp.

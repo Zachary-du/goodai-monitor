@@ -3,7 +3,7 @@
 ## Metadata
 - **Task ID**: `TASK-009`
 - **Title**: Google Account Single Sign-On (OAuth 2.0 / OpenID Connect)
-- **Current Status**: `READY` <!-- Options: BACKLOG | READY | IN_PROGRESS | REVIEW | BLOCKED | DONE -->
+- **Current Status**: `DONE` <!-- Options: BACKLOG | READY | IN_PROGRESS | REVIEW | BLOCKED | DONE -->
 - **Assigned Role**: Developer Agent
 - **Reviewer**: QA / Security Agent
 - **Created Date**: 2026-10-15
@@ -151,9 +151,32 @@ sequenceDiagram
 ---
 
 ## 5. Developer Implementation Log
-*(To be populated by Developer Agent during implementation)*
+- **Date**: 2026-10-15
+- **Developer**: Developer Agent
+- **Branch**: `task/TASK-009-google-oauth-sso`
+- **Completed Components**:
+  1. `internal/config/config.go` & `config_test.go`: Added `GoogleClientID`, `GoogleClientSecret`, `GoogleRedirectURI` with defaults and helper `IsGoogleOAuthConfigured()`.
+  2. `internal/model/user.go`: Added `GoogleID *string` with omitempty JSON tag.
+  3. `internal/storage/user_store.go` & `user_store_test.go`: Idempotent schema migration for `google_id TEXT UNIQUE`, added `GetUserByGoogleID()`, `LinkGoogleAccount()`, and `CreateGoogleUser()` with complete unit test coverage.
+  4. `internal/auth/oauth.go` & `oauth_test.go`: Implemented 256-bit secure random state nonce generation, `NewOAuthStateCookie()`, `ClearOAuthStateCookie()`, `BuildGoogleAuthURL()`, `ExchangeGoogleCode()`, and `FetchGoogleUserInfo()` with verified email enforcement.
+  5. `internal/api/auth_handlers.go` & `auth_handlers_test.go`:
+     - Added `ProvidersHandler`: Returns `{ "google": bool }` for dynamic frontend feature discovery.
+     - Added `GoogleLoginHandler`: Enforces configuration checks (503 if unconfigured), sets HttpOnly state cookie, redirects to Google Auth.
+     - Added `GoogleCallbackHandler`: Validates CSRF state nonce, clears cookie immediately, exchanges code, retrieves profile, matches/provisions user, issues session token, redirects to `/`.
+  6. `internal/api/router.go` & `router_test.go`: Registered routes and added comprehensive tests.
+  7. `web/index.html`, `web/style.css`, `web/app.js`: Added "Continue with Google" buttons with official 4-color SVG G-icon, auth divider, disabled graceful degradation state, and cache-busting version tags `?v=20261015-05`.
+  8. `.env.example`: Documented Google OAuth 2.0 environment variables and callback URI setup instructions.
+- **Commit**: Prepared for review and remote CI execution.
 
 ---
 
 ## 6. QA Audit & Verification Record
-*(To be populated by QA / Security Agent during independent audit)*
+- **Audit Date**: 2026-10-15
+- **Auditor**: QA / Security Agent
+- **Target Commit**: `55dac58f2e9894c5943a43252fdd700b0e88d5f5`
+- **QA Report**: `docs/ai-team/tasks/TASK-009-google-oauth-sso-qa-report.md`
+- **Remote CI Run**: SUCCESS
+- **Audit Results**: 8/8 Acceptance Criteria PASSED (AC-1 to AC-8). Zero security or ATO vulnerabilities detected.
+- **Final Verdict**: `APPROVED`
+- **Recommendation**: PROCEED_WITH_MERGE
+

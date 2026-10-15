@@ -202,3 +202,56 @@ func TestUserStore_ExpiredSession(t *testing.T) {
 		t.Errorf("expected 1 expired session deleted, got %d", deletedCount)
 	}
 }
+
+func TestUserStore_GoogleOAuth(t *testing.T) {
+	db, store := setupTestDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// 1. Create a Google user
+	gUser, err := store.CreateGoogleUser(ctx, "googleuser@example.com", "Google User", "google-sub-123456")
+	if err != nil {
+		t.Fatalf("failed to create google user: %v", err)
+	}
+	if gUser.GoogleID == nil || *gUser.GoogleID != "google-sub-123456" {
+		t.Fatalf("expected google_id 'google-sub-123456'")
+	}
+
+	// 2. Query by Google ID
+	fetched, err := store.GetUserByGoogleID(ctx, "google-sub-123456")
+	if err != nil {
+		t.Fatalf("failed to get user by google id: %v", err)
+	}
+	if fetched.ID != gUser.ID || fetched.Email != "googleuser@example.com" {
+		t.Errorf("fetched user mismatch: %+v", fetched)
+	}
+
+	// 3. Duplicate Google user should fail
+	_, err = store.CreateGoogleUser(ctx, "other@example.com", "Other", "google-sub-123456")
+	if err == nil {
+		t.Errorf("expected duplicate google id to fail")
+	}
+
+	// 4. Link existing standard password user with Google ID
+	standardUser, err := store.CreateUser(ctx, &model.User{
+		Email:        "existing@example.com",
+		PasswordHash: "somehash",
+		Name:         "Existing",
+	})
+	if err != nil {
+		t.Fatalf("failed to create standard user: %v", err)
+	}
+
+	if err := store.LinkGoogleAccount(ctx, standardUser.ID, "google-sub-7890"); err != nil {
+		t.Fatalf("failed to link google account: %v", err)
+	}
+
+	linked, err := store.GetUserByGoogleID(ctx, "google-sub-7890")
+	if err != nil {
+		t.Fatalf("failed to fetch linked user: %v", err)
+	}
+	if linked.ID != standardUser.ID {
+		t.Errorf("expected linked ID %d, got %d", standardUser.ID, linked.ID)
+	}
+}

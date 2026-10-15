@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Zachary-du/goodai-monitor/internal/config"
 	"github.com/Zachary-du/goodai-monitor/internal/storage"
 )
 
@@ -184,4 +185,48 @@ func TestRouter_SecurityEndpoints(t *testing.T) {
 		}
 	}
 }
+
+func TestRouter_GoogleOAuthEndpoints(t *testing.T) {
+	db, err := storage.Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer db.Close()
+
+	cfg := &config.Config{
+		GoogleClientID:     "router-test-client",
+		GoogleClientSecret: "router-test-secret",
+		GoogleRedirectURI:  "https://goodai.co.nz/api/v1/auth/google/callback",
+	}
+
+	router := NewRouter(db, cfg)
+
+	// 1. Providers endpoint
+	providersReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/providers", nil)
+	providersRec := httptest.NewRecorder()
+	router.ServeHTTP(providersRec, providersReq)
+
+	if providersRec.Code != http.StatusOK {
+		t.Errorf("expected 200 for /api/v1/auth/providers, got %d", providersRec.Code)
+	}
+
+	// 2. Google Login endpoint (redirects to Google)
+	loginReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/login", nil)
+	loginRec := httptest.NewRecorder()
+	router.ServeHTTP(loginRec, loginReq)
+
+	if loginRec.Code != http.StatusFound {
+		t.Errorf("expected 302 Found for /api/v1/auth/google/login, got %d", loginRec.Code)
+	}
+
+	// 3. Google Callback endpoint without state returns 400 Bad Request
+	cbReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback", nil)
+	cbRec := httptest.NewRecorder()
+	router.ServeHTTP(cbRec, cbReq)
+
+	if cbRec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 Bad Request for /api/v1/auth/google/callback without state, got %d", cbRec.Code)
+	}
+}
+
 
