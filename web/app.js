@@ -334,6 +334,7 @@ function initAuth() {
     if (quotaDisplay) quotaDisplay.style.display = "none";
 
     stopMonitorPolling();
+    updateFleetMetrics([]);
     renderGuestMonitors();
     renderGuestIncidents();
     resetSecurityAuditState();
@@ -546,6 +547,7 @@ async function loadMonitors() {
     renderMonitorsTable(cachedMonitors);
     updateQuotaBadge(cachedMonitors.length);
     populateAuditTargetDropdown(cachedMonitors);
+    updateFleetMetrics(cachedMonitors);
   } catch (err) {
     console.warn("Failed to load monitors:", err);
   }
@@ -624,25 +626,16 @@ function renderGuestMonitors() {
   const countBadge = document.getElementById("monitor-count");
 
   if (countBadge) {
-    countBadge.textContent = "1 Target";
+    countBadge.textContent = "0 Targets";
   }
 
   if (tbody) {
     tbody.innerHTML = `
       <tr>
-        <td>
-          <div class="service-cell">
-            <span class="service-name">GoodAI Monitor Health</span>
-            <span class="service-tags">Internal Telemetry</span>
+        <td colspan="7" style="text-align: center; padding: 2.5rem 1rem;">
+          <div style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9375rem; font-weight: 500;">
+            Sign in to configure and monitor your web services.
           </div>
-        </td>
-        <td><code class="url-badge">GET /healthz</code></td>
-        <td>5 seconds</td>
-        <td>--</td>
-        <td>100.0%</td>
-        <td><span class="badge badge-up">UP</span></td>
-        <td style="text-align: right;">
-          <span style="font-size: 0.75rem; color: var(--text-muted);">System</span>
         </td>
       </tr>
     `;
@@ -1174,132 +1167,204 @@ function showToast(message, type = "info") {
 }
 
 // System Health Polling
+// Customer Fleet Telemetry Aggregation Engine
+function updateFleetMetrics(monitors) {
+  const slaVal = document.getElementById("fleet-sla-val");
+  const slaBadge = document.getElementById("fleet-sla-badge");
+  const slaSubtext = document.getElementById("fleet-sla-subtext");
+
+  const targetsVal = document.getElementById("fleet-targets-val");
+  const targetsBadge = document.getElementById("fleet-targets-badge");
+  const targetsSubtext = document.getElementById("fleet-targets-subtext");
+
+  const latencyVal = document.getElementById("fleet-latency-val");
+  const latencyBadge = document.getElementById("fleet-latency-badge");
+  const latencySubtext = document.getElementById("fleet-latency-subtext");
+
+  const outagesVal = document.getElementById("fleet-outages-val");
+  const outagesBadge = document.getElementById("fleet-outages-badge");
+  const outagesSubtext = document.getElementById("fleet-outages-subtext");
+
+  const bannerBadge = document.getElementById("banner-badge");
+  const bannerText = document.getElementById("banner-status-text");
+  const bannerHeading = document.getElementById("banner-heading");
+  const bannerSubtext = document.getElementById("banner-subtext");
+  const brandIndicator = document.getElementById("brand-indicator");
+  const lastPollEl = document.getElementById("last-poll-time");
+
+  if (lastPollEl) {
+    lastPollEl.textContent = new Date().toLocaleTimeString("en-NZ", { hour12: false });
+  }
+
+  if (!monitors || monitors.length === 0) {
+    // Zero active monitors configured
+    if (slaVal) slaVal.textContent = "--";
+    if (slaBadge) {
+      slaBadge.className = "badge-subtle";
+      slaBadge.textContent = "STANDBY";
+    }
+    if (slaSubtext) slaSubtext.textContent = "No active targets configured";
+
+    if (targetsVal) targetsVal.textContent = "0 / 10";
+    if (targetsBadge) {
+      targetsBadge.className = "badge-subtle badge-up";
+      targetsBadge.textContent = "Available";
+    }
+    if (targetsSubtext) targetsSubtext.textContent = "10 probe slots available";
+
+    if (latencyVal) latencyVal.textContent = "--";
+    if (latencyBadge) {
+      latencyBadge.className = "badge-subtle";
+      latencyBadge.textContent = "--";
+    }
+    if (latencySubtext) latencySubtext.textContent = "Awaiting first probe";
+
+    if (outagesVal) outagesVal.textContent = "0";
+    if (outagesBadge) {
+      outagesBadge.className = "badge-subtle badge-up";
+      outagesBadge.textContent = "ALL OPERATIONAL";
+    }
+    if (outagesSubtext) outagesSubtext.textContent = "Zero active incidents";
+
+    if (bannerBadge) bannerBadge.className = "banner-status-badge badge-pending";
+    if (bannerText) bannerText.textContent = "STANDBY";
+    if (bannerHeading) bannerHeading.textContent = "No Monitoring Targets Configured";
+    if (bannerSubtext) bannerSubtext.textContent = "Add your first service or API endpoint to begin synthetic health probing.";
+    if (brandIndicator) brandIndicator.className = "status-indicator-dot online";
+    return;
+  }
+
+  // Active targets breakdown
+  const activeMonitors = monitors.filter(m => m.status !== "PAUSED");
+  const pausedMonitors = monitors.filter(m => m.status === "PAUSED");
+  const downMonitors = monitors.filter(m => m.status === "DOWN");
+  const degradedMonitors = monitors.filter(m => m.status === "DEGRADED");
+
+  // 1. Fleet SLA Calculation (Average uptime % across active monitors)
+  if (activeMonitors.length > 0) {
+    const totalUptime = activeMonitors.reduce((acc, m) => acc + (typeof m.uptime_percent === "number" ? m.uptime_percent : 100), 0);
+    const avgUptime = totalUptime / activeMonitors.length;
+    if (slaVal) slaVal.textContent = `${avgUptime.toFixed(2)}%`;
+    if (slaBadge) {
+      if (downMonitors.length > 0) {
+        slaBadge.className = "badge-subtle badge-down";
+        slaBadge.textContent = "OUTAGE";
+      } else if (avgUptime < 99.0 || degradedMonitors.length > 0) {
+        slaBadge.className = "badge-subtle badge-degraded";
+        slaBadge.textContent = "DEGRADED";
+      } else {
+        slaBadge.className = "badge-subtle badge-up";
+        slaBadge.textContent = "HEALTHY";
+      }
+    }
+    if (slaSubtext) slaSubtext.textContent = `Across ${activeMonitors.length} active target${activeMonitors.length === 1 ? '' : 's'}`;
+  } else {
+    if (slaVal) slaVal.textContent = "--";
+    if (slaBadge) {
+      slaBadge.className = "badge-subtle";
+      slaBadge.textContent = "PAUSED";
+    }
+    if (slaSubtext) slaSubtext.textContent = "All targets currently paused";
+  }
+
+  // 2. Monitored Services Quota
+  if (targetsVal) targetsVal.textContent = `${monitors.length} / 10`;
+  if (targetsBadge) {
+    targetsBadge.className = pausedMonitors.length > 0 ? "badge-subtle badge-paused" : "badge-subtle badge-up";
+    targetsBadge.textContent = pausedMonitors.length > 0 ? `${pausedMonitors.length} Paused` : "All Active";
+  }
+  if (targetsSubtext) {
+    const remaining = 10 - monitors.length;
+    targetsSubtext.textContent = `${remaining} available slot${remaining === 1 ? '' : 's'}`;
+  }
+
+  // 3. Average Response Latency
+  const responsiveMonitors = monitors.filter(m => typeof m.last_latency_ms === "number" && m.last_latency_ms > 0);
+  if (responsiveMonitors.length > 0) {
+    const totalLatency = responsiveMonitors.reduce((acc, m) => acc + m.last_latency_ms, 0);
+    const avgLatency = Math.round(totalLatency / responsiveMonitors.length);
+    if (latencyVal) latencyVal.textContent = `${avgLatency} ms`;
+    if (latencyBadge) {
+      if (avgLatency <= 200) {
+        latencyBadge.className = "badge-subtle badge-up";
+        latencyBadge.textContent = "FAST";
+      } else if (avgLatency <= 500) {
+        latencyBadge.className = "badge-subtle badge-degraded";
+        latencyBadge.textContent = "MODERATE";
+      } else {
+        latencyBadge.className = "badge-subtle badge-down";
+        latencyBadge.textContent = "HIGH";
+      }
+    }
+    if (latencySubtext) latencySubtext.textContent = "Fleet synthetic TTFB";
+  } else {
+    if (latencyVal) latencyVal.textContent = "--";
+    if (latencyBadge) {
+      latencyBadge.className = "badge-subtle";
+      latencyBadge.textContent = "--";
+    }
+    if (latencySubtext) latencySubtext.textContent = "Awaiting first response";
+  }
+
+  // 4. Active Outages
+  const outageCount = downMonitors.length;
+  if (outagesVal) outagesVal.textContent = `${outageCount}`;
+  if (outagesBadge) {
+    if (outageCount === 0) {
+      outagesBadge.className = "badge-subtle badge-up";
+      outagesBadge.textContent = "ALL OPERATIONAL";
+    } else {
+      outagesBadge.className = "badge-subtle badge-down";
+      outagesBadge.textContent = `${outageCount} ACTIVE`;
+    }
+  }
+  if (outagesSubtext) {
+    outagesSubtext.textContent = outageCount === 0 ? "Zero confirmed outages" : "Immediate attention required";
+  }
+
+  // 5. System Fleet Banner
+  if (outageCount > 0) {
+    if (bannerBadge) bannerBadge.className = "banner-status-badge badge-down";
+    if (bannerText) bannerText.textContent = "OUTAGE DETECTED";
+    if (bannerHeading) bannerHeading.textContent = `Fleet Incident Detected (${outageCount} Outage${outageCount === 1 ? '' : 's'})`;
+    if (bannerSubtext) bannerSubtext.textContent = "One or more monitored endpoints are currently failing synthetic health probes.";
+    if (brandIndicator) brandIndicator.className = "status-indicator-dot offline";
+  } else if (degradedMonitors.length > 0) {
+    if (bannerBadge) bannerBadge.className = "banner-status-badge badge-degraded";
+    if (bannerText) bannerText.textContent = "DEGRADED";
+    if (bannerHeading) bannerHeading.textContent = "Fleet Latency Degraded";
+    if (bannerSubtext) bannerSubtext.textContent = "All services reachable, but one or more targets exhibit elevated response times.";
+    if (brandIndicator) brandIndicator.className = "status-indicator-dot online";
+  } else {
+    if (bannerBadge) bannerBadge.className = "banner-status-badge badge-up";
+    if (bannerText) bannerText.textContent = "OPERATIONAL";
+    if (bannerHeading) bannerHeading.textContent = "All Monitored Services Operational";
+    if (bannerSubtext) bannerSubtext.textContent = `Continuous background probing active across ${monitors.length} target${monitors.length === 1 ? '' : 's'}.`;
+    if (brandIndicator) brandIndicator.className = "status-indicator-dot online";
+  }
+}
+
+// System Connectivity Heartbeat
 async function pollHealth() {
   const lastPollEl = document.getElementById("last-poll-time");
+  const brandIndicator = document.getElementById("brand-indicator");
   try {
     const response = await fetch("/healthz", { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     const data = await response.json();
-    updateUIWithHealthData(data);
-    if (lastPollEl) lastPollEl.textContent = new Date().toLocaleTimeString("en-NZ", { hour12: false });
+    if (brandIndicator) {
+      brandIndicator.className = data.status === "ok" ? "status-indicator-dot online" : "status-indicator-dot offline";
+    }
+    if (lastPollEl && !currentUser) {
+      lastPollEl.textContent = new Date().toLocaleTimeString("en-NZ", { hour12: false });
+    }
   } catch (error) {
-    console.warn("Failed to poll /healthz:", error);
-    markSystemDegraded("Failed to connect to health endpoint");
-    if (lastPollEl) lastPollEl.textContent = "Connection Error";
+    console.warn("Failed to poll backend connectivity:", error);
+    if (brandIndicator) brandIndicator.className = "status-indicator-dot offline";
+    if (lastPollEl && !currentUser) lastPollEl.textContent = "Offline";
   }
-}
-
-function updateUIWithHealthData(data) {
-  // Update Uptime
-  const uptimeEl = document.getElementById("uptime-value");
-  if (uptimeEl && typeof data.uptime_seconds === "number") {
-    uptimeEl.textContent = formatUptime(data.uptime_seconds);
-  }
-
-  // Update Memory RSS
-  const rssEl = document.getElementById("rss-value");
-  const rssBar = document.getElementById("rss-progress");
-  const rssSubtext = document.getElementById("rss-subtext");
-  if (rssEl && typeof data.memory_rss_bytes === "number") {
-    const mib = data.memory_rss_bytes / (1024 * 1024);
-    rssEl.textContent = `${mib.toFixed(1)} MiB`;
-
-    const budgetMib = 20.0;
-    const pct = Math.min(Math.round((mib / budgetMib) * 100), 100);
-    if (rssBar) {
-      rssBar.style.width = `${pct}%`;
-      if (pct > 90) {
-        rssBar.style.backgroundColor = "var(--color-down)";
-      } else if (pct > 75) {
-        rssBar.style.backgroundColor = "var(--color-degraded)";
-      } else {
-        rssBar.style.backgroundColor = "var(--color-up)";
-      }
-    }
-    if (rssSubtext) {
-      rssSubtext.textContent = "Optimal resource allocation";
-    }
-  }
-
-  // Update Database Connection
-  const dbBadge = document.getElementById("db-badge");
-  if (dbBadge) {
-    if (data.database === "connected") {
-      dbBadge.className = "badge-subtle badge-up";
-      dbBadge.textContent = "Healthy";
-    } else {
-      dbBadge.className = "badge-subtle badge-down";
-      dbBadge.textContent = "Offline";
-    }
-  }
-
-  // Update Goroutines & Heap
-  const goroutinesEl = document.getElementById("goroutines-value");
-  const heapBadge = document.getElementById("heap-badge");
-  if (goroutinesEl && typeof data.go_goroutine_count === "number") {
-    goroutinesEl.textContent = data.go_goroutine_count;
-  }
-  if (heapBadge) {
-    heapBadge.textContent = "Active Engine";
-  }
-
-  // Update Landing Page Live Telemetry Proof widgets
-  const landingUptime = document.getElementById("landing-uptime-val");
-  const landingRss = document.getElementById("landing-rss-val");
-  const landingGoro = document.getElementById("landing-goroutines-val");
-  const landingBadge = document.getElementById("landing-telemetry-badge");
-
-  if (landingUptime && typeof data.uptime_seconds === "number") {
-    landingUptime.textContent = formatUptime(data.uptime_seconds);
-  }
-  if (landingRss) {
-    landingRss.innerHTML = "&lt; 1 ms";
-  }
-  if (landingGoro && typeof data.go_goroutine_count === "number") {
-    landingGoro.textContent = `Active Workers: ${data.go_goroutine_count}`;
-  }
-  if (landingBadge) {
-    if (data.status === "ok" && data.database === "connected") {
-      landingBadge.textContent = "100% OPERATIONAL";
-      if (landingBadge.parentElement) landingBadge.parentElement.className = "banner-status-badge badge-up";
-    } else {
-      landingBadge.textContent = "DEGRADED";
-      if (landingBadge.parentElement) landingBadge.parentElement.className = "banner-status-badge badge-degraded";
-    }
-  }
-
-  // Update System Status Banner
-  const bannerBadge = document.getElementById("banner-badge");
-  const bannerText = document.getElementById("banner-status-text");
-  const bannerHeading = document.getElementById("banner-heading");
-  const bannerSubtext = document.getElementById("banner-subtext");
-  const brandIndicator = document.getElementById("brand-indicator");
-
-  if (data.status === "ok" && data.database === "connected") {
-    if (bannerBadge) bannerBadge.className = "banner-status-badge badge-up";
-    if (bannerText) bannerText.textContent = "OPERATIONAL";
-    if (bannerHeading) bannerHeading.textContent = "All Systems Functioning Normally";
-    if (bannerSubtext) bannerSubtext.textContent = "Continuous background probing active with zero detected outages.";
-    if (brandIndicator) brandIndicator.className = "status-indicator-dot online";
-  } else {
-    markSystemDegraded("One or more subsystems reported an issue");
-  }
-}
-
-function markSystemDegraded(reason) {
-  const bannerBadge = document.getElementById("banner-badge");
-  const bannerText = document.getElementById("banner-status-text");
-  const bannerHeading = document.getElementById("banner-heading");
-  const bannerSubtext = document.getElementById("banner-subtext");
-  const brandIndicator = document.getElementById("brand-indicator");
-
-  if (bannerBadge) bannerBadge.className = "banner-status-badge badge-degraded";
-  if (bannerText) bannerText.textContent = "DEGRADED";
-  if (bannerHeading) bannerHeading.textContent = "Telemetry Degraded";
-  if (bannerSubtext) bannerSubtext.textContent = reason;
-  if (brandIndicator) brandIndicator.className = "status-indicator-dot offline";
 }
 
 function openModal(modal) {

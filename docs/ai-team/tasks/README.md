@@ -32,5 +32,6 @@ All task files maintain their current state in the metadata header:
 | [TASK-008](TASK-008-security-audit-and-ai-defense-report.md) | Web Security & AI Defense Audit with Standalone Report | `DONE` | TASK-001..003 | AI bot governance, HTTP headers, TLS posture, sensitive probes, 0-100 score, HTML export |
 | [BUG-008-02](BUG-008-02-brand-logo-rendering.md) | Brand Logo Rendering & CI/CD Deployment Synchronization | `DONE` | TASK-008 | Fix premature pull race condition, update cache version to 20261015-02, verify HTTP 200 SVG |
 | [BUG-008-03](BUG-008-03-commercial-copy-and-logo-fidelity-qa-report.md) | Commercial Copy Overhaul & Option 3 Logo Fidelity | `DONE` | TASK-008 | 1:1 Option 3 logo recreation, clean transparent alpha, eliminate all dev jargon from website |
-| [TASK-009](TASK-009-google-oauth-sso.md) | Google Account Single Sign-On (OAuth 2.0 / OIDC) | `READY` | TASK-001, TASK-002 | Google OAuth login, CSRF state nonce, code exchange, account linking, UI Google button |
+| [TASK-009](TASK-009-google-oauth-sso.md) | Google Account Single Sign-On (OAuth 2.0 / OIDC) | `DONE` | TASK-001, TASK-002 | Google OAuth login, CSRF state nonce, code exchange, account linking, UI Google button |
+| [TASK-010](TASK-010-fleet-dashboard-cleanup.md) | Customer Fleet Telemetry & Internal Junk Elimination | `DONE` | TASK-001..009 | Eliminate internal debug widgets (uptime/RSS/WAL/workers), customer fleet SLA, services quota, latency, outages |
 

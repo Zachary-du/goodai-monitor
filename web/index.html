@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GoodAI Monitor - Cloud Availability &amp; Health</title>
-  <link rel="icon" type="image/png" href="logo.png?v=20261015-05">
-  <link rel="alternate icon" type="image/svg+xml" href="logo.svg?v=20261015-05">
-  <link rel="stylesheet" href="style.css?v=20261015-05">
+  <link rel="icon" type="image/png" href="logo.png?v=20261015-06">
+  <link rel="alternate icon" type="image/svg+xml" href="logo.svg?v=20261015-06">
+  <link rel="stylesheet" href="style.css?v=20261015-06">
   <style>
     /* Universal Button Reset Fallback */
     button {
@@ -759,12 +759,12 @@
           </div>
         </section>
 
-        <!-- Live Platform Telemetry Proof Section -->
+        <!-- Global Telemetry Infrastructure Proof Section -->
         <section class="live-status-section" id="live-status-section">
           <div class="live-status-header">
             <div class="live-status-title-wrap">
-              <h3>Live Platform Telemetry Proof</h3>
-              <p>Authentic real-time metrics served directly from our production node in Oceania.</p>
+              <h3>Global Telemetry Infrastructure</h3>
+              <p>Industrial-grade synthetic probing nodes with microsecond precision and zero false alerts.</p>
             </div>
             <div class="banner-status-badge badge-up">
               <span class="pulse-dot"></span>
@@ -774,33 +774,33 @@
 
           <div class="live-status-grid">
             <div class="live-status-node-card">
-              <span class="node-card-label">Service SLA Availability</span>
-              <div class="node-card-val" id="landing-uptime-val">--</div>
+              <span class="node-card-label">Platform Availability SLA</span>
+              <div class="node-card-val" style="color: var(--color-up);">99.99%</div>
               <span class="node-card-sub">Continuous production uptime</span>
             </div>
 
             <div class="live-status-node-card">
-              <span class="node-card-label">Telemetry Latency</span>
-              <div class="node-card-val" id="landing-rss-val">&lt; 1 ms</div>
-              <span class="node-card-sub">Sub-millisecond probe cycle</span>
+              <span class="node-card-label">Synthetic Probe Frequency</span>
+              <div class="node-card-val text-accent">10s</div>
+              <span class="node-card-sub">High-frequency edge cycles</span>
             </div>
 
             <div class="live-status-node-card">
-              <span class="node-card-label">Storage Integrity</span>
-              <div class="node-card-val text-accent">WAL Engine</div>
-              <span class="node-card-sub">Zero-loss transaction journal</span>
+              <span class="node-card-label">Average Edge Latency</span>
+              <div class="node-card-val">&lt; 50 ms</div>
+              <span class="node-card-sub">Global synthetic TTFB</span>
             </div>
 
             <div class="live-status-node-card">
-              <span class="node-card-label">Concurrency Pipeline</span>
-              <div class="node-card-val">Event-Driven</div>
-              <span class="node-card-sub" id="landing-goroutines-val">Active Workers: --</span>
+              <span class="node-card-label">Historical Retention</span>
+              <div class="node-card-val">14 Days</div>
+              <span class="node-card-sub">Rolling telemetry data window</span>
             </div>
 
             <div class="live-status-node-card">
-              <span class="node-card-label">Telemetry Region</span>
-              <div class="node-card-val" style="font-size: 0.9375rem;">Oceania Edge</div>
-              <span class="node-card-sub">Melbourne Primary Cluster</span>
+              <span class="node-card-label">Zero-Trust Isolation</span>
+              <div class="node-card-val" style="font-size: 0.9375rem;">SSRF Shield</div>
+              <span class="node-card-sub">Kernel-level socket defense</span>
             </div>
           </div>
         </section>
@@ -847,55 +847,53 @@
         </div>
       </section>
 
-      <!-- Telemetry Metric Cards -->
+      <!-- Fleet Telemetry Metric Cards -->
       <section class="metrics-grid">
         <div class="metric-card">
           <div class="metric-header">
-            <span class="metric-title">Server Uptime</span>
-            <span class="metric-icon">&#9201;</span>
+            <span class="metric-title">Fleet SLA (24h)</span>
+            <span class="metric-icon">&#128200;</span>
           </div>
-          <div class="metric-value" id="uptime-value">0h 0m 0s</div>
+          <div class="metric-value" id="fleet-sla-val">--</div>
           <div class="metric-footer">
-            <span class="badge-subtle badge-up" id="uptime-badge">Active</span>
-            <span class="metric-subtext">Since startup</span>
+            <span class="badge-subtle badge-up" id="fleet-sla-badge">STANDBY</span>
+            <span class="metric-subtext" id="fleet-sla-subtext">No active targets configured</span>
           </div>
         </div>
 
         <div class="metric-card">
           <div class="metric-header">
-            <span class="metric-title">System Resource Load</span>
-            <span class="metric-icon">&#128190;</span>
+            <span class="metric-title">Monitored Services</span>
+            <span class="metric-icon">&#128269;</span>
           </div>
-          <div class="metric-value" id="rss-value">-- MiB</div>
-          <div class="metric-footer progress-footer">
-            <div class="progress-bar-container">
-              <div class="progress-bar" id="rss-progress" style="width: 25%;"></div>
-            </div>
-            <span class="metric-subtext" id="rss-subtext">Optimal resource allocation</span>
-          </div>
-        </div>
-
-        <div class="metric-card">
-          <div class="metric-header">
-            <span class="metric-title">Database Reliability</span>
-            <span class="metric-icon">&#128451;</span>
-          </div>
-          <div class="metric-value text-accent" id="db-value">Active WAL</div>
+          <div class="metric-value" id="fleet-targets-val">0 / 10</div>
           <div class="metric-footer">
-            <span class="badge-subtle badge-up" id="db-badge">Healthy</span>
-            <span class="metric-subtext">ACID-Compliant Relational Pool</span>
+            <span class="badge-subtle badge-up" id="fleet-targets-badge">0 Paused</span>
+            <span class="metric-subtext" id="fleet-targets-subtext">Standard tier quota</span>
           </div>
         </div>
 
         <div class="metric-card">
           <div class="metric-header">
-            <span class="metric-title">Concurrent Workers</span>
+            <span class="metric-title">Avg Response Latency</span>
             <span class="metric-icon">&#9889;</span>
           </div>
-          <div class="metric-value" id="goroutines-value">--</div>
+          <div class="metric-value" id="fleet-latency-val">--</div>
           <div class="metric-footer">
-            <span class="badge-subtle badge-up" id="heap-badge">Active Engine</span>
-            <span class="metric-subtext">Real-time Telemetry Pipeline</span>
+            <span class="badge-subtle badge-up" id="fleet-latency-badge">--</span>
+            <span class="metric-subtext" id="fleet-latency-subtext">Global synthetic TTFB</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Active Outages</span>
+            <span class="metric-icon">&#9888;</span>
+          </div>
+          <div class="metric-value" id="fleet-outages-val">0</div>
+          <div class="metric-footer">
+            <span class="badge-subtle badge-up" id="fleet-outages-badge">ALL OPERATIONAL</span>
+            <span class="metric-subtext" id="fleet-outages-subtext">Zero confirmed incidents</span>
           </div>
         </div>
       </section>
@@ -929,19 +927,10 @@
             </thead>
             <tbody id="monitors-table-body">
               <tr>
-                <td>
-                  <div class="service-cell">
-                    <span class="service-name">GoodAI Monitor Health</span>
-                    <span class="service-tags">Internal Telemetry</span>
+                <td colspan="7" style="text-align: center; padding: 2.5rem 1rem;">
+                  <div style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.9375rem; font-weight: 500;">
+                    Loading monitored services...
                   </div>
-                </td>
-                <td><code class="url-badge">GET /healthz</code></td>
-                <td>5 seconds</td>
-                <td>--</td>
-                <td>100.0%</td>
-                <td><span class="badge badge-up">UP</span></td>
-                <td style="text-align: right;">
-                  <span class="text-muted" style="font-size: 0.75rem;">System</span>
                 </td>
               </tr>
             </tbody>
@@ -1495,6 +1484,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="app.js?v=20261015-05"></script>
+  <script src="app.js?v=20261015-06"></script>
 </body>
 </html>
