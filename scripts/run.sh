@@ -10,7 +10,7 @@ git add -A
 if git diff --staged --quiet; then
   echo "Working tree clean. Nothing new to commit."
 else
-  git commit -m "feat: customer fleet telemetry dashboard and total elimination of internal debug widgets (TASK-010)"
+  git commit -m "fix: remove Ltd. and corporate claims from footer (BUG-010-01)"
 fi
 
 echo "=== [Step 2] Pushing to Remote Repository ==="
@@ -84,10 +84,10 @@ sleep 3
 echo "Checking https://goodai.co.nz/ HTTP Headers:"
 curl -sI https://goodai.co.nz/ | head -n 5
 
-echo "Checking Fleet Telemetry markup in live HTML:"
-curl -s https://goodai.co.nz/ | grep -E "fleet-sla-val|Global Telemetry Infrastructure|v=20261015-06" || true
+echo "Checking Footer markup in live HTML:"
+curl -s https://goodai.co.nz/ | grep -E "GoodAI Monitor<|v=20261015-07" || true
 
 echo "Checking updateFleetMetrics presence in live JavaScript:"
-curl -s "https://goodai.co.nz/app.js?v=20261015-06" | grep -o "updateFleetMetrics" | head -n 1 || true
+curl -s "https://goodai.co.nz/app.js?v=20261015-07" | grep -o "updateFleetMetrics" | head -n 1 || true
 
-echo "=== [SUCCESS] TASK-010 Successfully Deployed and Live Verified ==="
+echo "=== [SUCCESS] Footer Fix Successfully Deployed and Live Verified ==="
