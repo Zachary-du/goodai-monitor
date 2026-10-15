@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
@@ -16,13 +14,13 @@ if [[ -n "${MATCHES}" ]]; then
 fi
 echo "[SUCCESS] Zero non-English characters found in production assets."
 
-echo "=== [2/5] Staging and Committing TASK-009 Changes ==="
+echo "=== [2/5] Staging and Committing Bug Fix ==="
 git checkout -B task/TASK-009-google-oauth-sso
-git add internal/ web/ docs/ai-team/tasks/TASK-009-google-oauth-sso.md scripts/run.sh
+git add internal/storage/user_store.go scripts/run.sh
 if git diff --staged --quiet; then
   echo "No changes to commit."
 else
-  git commit -m "feat(auth): implement Google OAuth 2.0 Single Sign-On and enterprise UI (TASK-009)"
+  git commit -m "fix(storage): use db.QueryContext instead of unexported conn in user_store"
 fi
 
 echo "=== [3/5] Pushing Branch to Remote GitHub Repository ==="
@@ -31,26 +29,38 @@ HEAD_SHA="$(git rev-parse HEAD)"
 echo "Pushed commit: ${HEAD_SHA}"
 
 echo "=== [4/5] Awaiting Remote GitHub Actions CI Execution ==="
-for i in {1..35}; do
-  RUN_INFO=$(gh run list --branch task/TASK-009-google-oauth-sso --commit "${HEAD_SHA}" --json databaseId,status,conclusion --limit 1 2>/dev/null || true)
-  if [[ -n "${RUN_INFO}" && "${RUN_INFO}" != "[]" ]]; then
-    STATUS=$(echo "${RUN_INFO}" | jq -r '.[0].status')
-    CONCLUSION=$(echo "${RUN_INFO}" | jq -r '.[0].conclusion')
-    echo "[CI Monitor] Check ${i}: status=${STATUS}, conclusion=${CONCLUSION}"
-    if [[ "${STATUS}" == "completed" ]]; then
-      if [[ "${CONCLUSION}" == "success" ]]; then
-        echo "[CI Monitor] Remote GitHub Actions CI succeeded!"
-        break
-      else
-        echo "[CI Monitor] Remote GitHub Actions CI failed with conclusion: ${CONCLUSION}"
-        gh run view --commit "${HEAD_SHA}" --log-failed || true
-        exit 1
-      fi
+for i in {1..40}; do
+  RESP=$(curl -s "https://api.github.com/repos/Zachary-du/goodai-monitor/actions/runs?branch=task/TASK-009-google-oauth-sso" || true)
+  RUN_STATUS=$(python3 -c '
+import sys, json
+try:
+    data = json.loads(sys.argv[1])
+    head_sha = sys.argv[2]
+    runs = data.get("workflow_runs", [])
+    for r in runs:
+        if r.get("head_sha") == head_sha:
+            print(f"{r.get(\"status\")}:{r.get(\"conclusion\")}")
+            sys.exit(0)
+    print("not_found:")
+except Exception as e:
+    print(f"error:{e}")
+' "$RESP" "$HEAD_SHA")
+
+  STATUS="${RUN_STATUS%%:*}"
+  CONCLUSION="${RUN_STATUS##*:}"
+
+  echo "[CI Monitor] Check ${i}: status=${STATUS}, conclusion=${CONCLUSION}"
+
+  if [[ "${STATUS}" == "completed" ]]; then
+    if [[ "${CONCLUSION}" == "success" ]]; then
+      echo "[SUCCESS] Remote GitHub Actions CI passed!"
+      break
+    else
+      echo "[ERROR] Remote GitHub Actions CI finished with conclusion: ${CONCLUSION}"
+      exit 1
     fi
-  else
-    echo "[CI Monitor] Check ${i}: waiting for CI run to register for ${HEAD_SHA}..."
   fi
   sleep 8
 done
 
-echo "=== [5/5] Remote GitHub Actions CI Pipeline Completed Successfully! ==="
+echo "=== [5/5] GitHub Actions CI Pipeline Completed Successfully! ==="

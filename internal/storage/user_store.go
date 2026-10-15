@@ -77,7 +77,7 @@ func (db *DB) MigrateUserSchema(ctx context.Context) error {
 
 	// Ensure google_id column exists for OAuth SSO
 	var hasGoogleID bool
-	rows, err := db.conn.QueryContext(ctx, "PRAGMA table_info(users);")
+	rows, err := db.QueryContext(ctx, "PRAGMA table_info(users);")
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
