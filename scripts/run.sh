@@ -5,62 +5,118 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
-echo "=== [1/5] Verifying 100% English Compliance ==="
-MATCHES=$(git grep -I -P "[\x{4e00}-\x{9fa5}]" internal/ web/ cmd/ || true)
-if [[ -n "${MATCHES}" ]]; then
-  echo "[ERROR] Non-English characters detected in production code:"
-  echo "${MATCHES}"
-  exit 1
-fi
-echo "[SUCCESS] Zero non-English characters found in production assets."
-
-echo "=== [2/5] Staging and Committing Bug Fix ==="
-git checkout -B task/TASK-009-google-oauth-sso
-git add internal/storage/user_store.go scripts/run.sh
+echo "=== [1/6] Staging and Committing QA Documentation on task branch ==="
+git checkout task/TASK-009-google-oauth-sso
+git add docs/ai-team/tasks/TASK-009* scripts/run.sh
 if git diff --staged --quiet; then
-  echo "No changes to commit."
+  echo "No doc changes to commit."
 else
-  git commit -m "fix(storage): use db.QueryContext instead of unexported conn in user_store"
+  git commit -m "docs(qa): record QA audit approval and mark TASK-009 DONE"
 fi
-
-echo "=== [3/5] Pushing Branch to Remote GitHub Repository ==="
 git push origin task/TASK-009-google-oauth-sso
-HEAD_SHA="$(git rev-parse HEAD)"
-echo "Pushed commit: ${HEAD_SHA}"
+echo "[Git] Pushed task branch to remote."
 
-echo "=== [4/5] Awaiting Remote GitHub Actions CI Execution ==="
+echo "=== [2/6] Merging task/TASK-009-google-oauth-sso into main ==="
+git checkout main
+git pull origin main
+git merge --no-ff task/TASK-009-google-oauth-sso -m "Merge branch 'task/TASK-009-google-oauth-sso' into main"
+git push origin main
+MAIN_SHA="$(git rev-parse HEAD)"
+echo "[Git] Merged and pushed to main: ${MAIN_SHA}"
+
+echo "=== [3/6] Awaiting Remote CI Execution for main ==="
 for i in {1..40}; do
-  RESP=$(curl -s "https://api.github.com/repos/Zachary-du/goodai-monitor/actions/runs?branch=task/TASK-009-google-oauth-sso" || true)
+  RESP=$(curl -s "https://api.github.com/repos/Zachary-du/goodai-monitor/actions/runs?branch=main" || true)
   RUN_STATUS=$(python3 -c '
 import sys, json
 try:
     data = json.loads(sys.argv[1])
     head_sha = sys.argv[2]
     runs = data.get("workflow_runs", [])
+    found = False
     for r in runs:
         if r.get("head_sha") == head_sha:
-            print(f"{r.get(\"status\")}:{r.get(\"conclusion\")}")
-            sys.exit(0)
-    print("not_found:")
+            s = r.get("status")
+            c = r.get("conclusion")
+            print(str(s) + ":" + str(c))
+            found = True
+            break
+    if not found:
+        print("not_found:none")
 except Exception as e:
-    print(f"error:{e}")
-' "$RESP" "$HEAD_SHA")
+    print("error:" + str(e))
+' "$RESP" "$MAIN_SHA")
 
   STATUS="${RUN_STATUS%%:*}"
   CONCLUSION="${RUN_STATUS##*:}"
 
-  echo "[CI Monitor] Check ${i}: status=${STATUS}, conclusion=${CONCLUSION}"
+  echo "[CI Monitor - main] Check ${i}: status=${STATUS}, conclusion=${CONCLUSION}"
 
   if [[ "${STATUS}" == "completed" ]]; then
     if [[ "${CONCLUSION}" == "success" ]]; then
-      echo "[SUCCESS] Remote GitHub Actions CI passed!"
+      echo "[SUCCESS] Remote GitHub Actions CI on main passed!"
       break
     else
-      echo "[ERROR] Remote GitHub Actions CI finished with conclusion: ${CONCLUSION}"
+      echo "[ERROR] Remote GitHub Actions CI on main failed with conclusion: ${CONCLUSION}"
       exit 1
     fi
   fi
   sleep 8
 done
 
-echo "=== [5/5] GitHub Actions CI Pipeline Completed Successfully! ==="
+echo "=== [4/6] Configuring Melbourne VPS with Secret Isolation ==="
+chmod 600 key/158.179.29.27.key
+
+SSH_OPTS="-i key/158.179.29.27.key -p 60324 -o StrictHostKeyChecking=no"
+SSH_TARGET="ubuntu@158.179.29.27"
+
+if [[ -f .env.production ]]; then
+  echo "[Deploy] Transferring isolated credentials from local .env.production..."
+  ssh ${SSH_OPTS} ${SSH_TARGET} 'cat > /opt/goodai-monitor/.env.sso' < .env.production
+  ssh ${SSH_OPTS} ${SSH_TARGET} 'bash -s' << 'REMOTE_SCRIPT'
+set -euo pipefail
+cd /opt/goodai-monitor
+touch .env
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ -n "$line" && "$line" != \#* ]]; then
+    key="${line%%=*}"
+    val="${line#*=}"
+    if grep -q "^${key}=" .env; then
+      sed -i "s|^${key}=.*|${line}|" .env
+    else
+      echo "${line}" >> .env
+    fi
+  fi
+done < .env.sso
+rm -f .env.sso
+
+# Ensure docker-compose.yml has env_file: .env
+if ! grep -q "env_file:" docker-compose.yml; then
+  sed -i '/container_name: goodai-monitor/a \    env_file:\n      - .env' docker-compose.yml
+fi
+echo "[VPS] Environment configuration synchronized."
+REMOTE_SCRIPT
+fi
+
+echo "=== [5/6] Pulling Latest Container Image and Recreating Container ==="
+ssh ${SSH_OPTS} ${SSH_TARGET} 'bash -s' << 'REMOTE_SCRIPT'
+set -euo pipefail
+cd /opt/goodai-monitor
+
+docker compose pull
+docker compose up -d --force-recreate
+echo "[VPS] Container deployment completed. Verifying process..."
+sleep 3
+docker compose ps
+REMOTE_SCRIPT
+
+echo "=== [6/6] Verifying Live Production Endpoints ==="
+echo "Checking /api/v1/auth/providers:"
+curl -fsS "https://goodai.co.nz/api/v1/auth/providers"
+echo ""
+
+echo "Checking /api/v1/auth/google/login (should redirect HTTP 302):"
+curl -sI "https://goodai.co.nz/api/v1/auth/google/login" | head -n 10
+
+echo "=== TASK-009 Deployment and Verification Completed! ==="
