@@ -34,4 +34,7 @@ All task files maintain their current state in the metadata header:
 | [BUG-008-03](BUG-008-03-commercial-copy-and-logo-fidelity-qa-report.md) | Commercial Copy Overhaul & Option 3 Logo Fidelity | `DONE` | TASK-008 | 1:1 Option 3 logo recreation, clean transparent alpha, eliminate all dev jargon from website |
 | [TASK-009](TASK-009-google-oauth-sso.md) | Google Account Single Sign-On (OAuth 2.0 / OIDC) | `DONE` | TASK-001, TASK-002 | Google OAuth login, CSRF state nonce, code exchange, account linking, UI Google button |
 | [TASK-010](TASK-010-fleet-dashboard-cleanup.md) | Customer Fleet Telemetry & Internal Junk Elimination | `DONE` | TASK-001..009 | Eliminate internal debug widgets (uptime/RSS/WAL/workers), customer fleet SLA, services quota, latency, outages |
+| [TASK-011](TASK-011-security-showcase-and-leak-eradication.md) | Security Showcase & Leak Eradication | `DONE` | TASK-010 | Landing page security bento showcase, clear default audit URL, eradicate VPS references & fake corporate claims |
+| [TASK-012](TASK-012-homepage-interactive-showcase-and-playground.md) | Dual-Engine Hero Showcase & Instant Public Playground | `DONE` | TASK-011 | Hero showcase tabs, instant public inspection playground, public audit endpoint, developer FAQ accordion |
+
 

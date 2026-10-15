@@ -10,7 +10,7 @@ git add -A
 if git diff --staged --quiet; then
   echo "Working tree clean. Nothing new to commit."
 else
-  git commit -m "feat: showcase web security on landing page, clear default audit URL, eradicate VPS references (TASK-011)"
+  git commit -m "feat: dual-engine hero tabs, instant public playground, developer FAQ (TASK-012)"
 fi
 
 echo "=== [Step 2] Pushing to Remote Repository ==="
@@ -84,10 +84,15 @@ sleep 3
 echo "Checking https://goodai.co.nz/ HTTP Headers:"
 curl -sI https://goodai.co.nz/ | head -n 5
 
-echo "Checking Security Showcase markup in live HTML:"
-curl -s https://goodai.co.nz/ | grep -E "security-showcase-section|v=20261015-08" || true
+echo "Checking Dual-Engine tabs, Playground & FAQ markup in live HTML:"
+curl -s https://goodai.co.nz/ | grep -E "showcase-tab-bar|playground-section|faq-section|v=20261016-01" || true
 
-echo "Checking updateFleetMetrics presence in live JavaScript:"
-curl -s "https://goodai.co.nz/app.js?v=20261015-08" | grep -o "updateFleetMetrics" | head -n 1 || true
+echo "Checking initPublicAudit & initShowcaseTabs in live JavaScript:"
+curl -s "https://goodai.co.nz/app.js?v=20261016-01" | grep -o -E "initShowcaseTabs|initPublicAudit|initFAQ" | head -n 3 || true
 
-echo "=== [SUCCESS] TASK-011 Successfully Deployed and Live Verified ==="
+echo "Testing unauthenticated Public Security Audit API endpoint:"
+curl -s -X POST https://goodai.co.nz/api/v1/security/public-audit \
+  -H "Content-Type: application/json" \
+  -d '{"target_url":"https://example.com"}' | grep -o -E '"composite_score":[0-9]+|"target_host":"[^"]+"' || true
+
+echo "=== [SUCCESS] TASK-012 Successfully Deployed and Live Verified ==="

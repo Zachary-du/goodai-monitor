@@ -186,6 +186,27 @@ func TestRouter_SecurityEndpoints(t *testing.T) {
 	}
 }
 
+func TestRouter_PublicSecurityAuditEndpoint(t *testing.T) {
+	db, err := storage.Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open test db: %v", err)
+	}
+	defer db.Close()
+
+	router := NewRouter(db)
+
+	// POST /api/v1/security/public-audit without authentication should not return 401
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/security/public-audit", strings.NewReader(`{"target_url":""}`))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	// Since target_url is empty, it should return 400 Bad Request, NOT 401 Unauthorized
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 Bad Request for unauthenticated public audit with empty body, got %d", rec.Code)
+	}
+}
+
+
 func TestRouter_GoogleOAuthEndpoints(t *testing.T) {
 	db, err := storage.Open(":memory:")
 	if err != nil {

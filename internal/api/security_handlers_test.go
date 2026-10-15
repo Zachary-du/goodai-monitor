@@ -225,3 +225,72 @@ func TestSecurityHandlers_AuditAndExportFlow(t *testing.T) {
 		t.Errorf("expected standalone HTML in export response")
 	}
 }
+
+func TestPublicSecurityAuditHandler_Success(t *testing.T) {
+	mockReport := &model.SecurityAuditReport{
+		TargetHost:     "example.com",
+		CompositeScore: 88,
+		Grade:          "A",
+		GradeLabel:     "Strong Defense",
+		ExecutionMs:    150,
+		DomainScores: []model.CategoryBreakdown{
+			{DomainKey: "ai_governance", DomainName: "AI Bot Governance", Score: 20, MaxScore: 25, Status: "Hardened"},
+			{DomainKey: "headers", DomainName: "Security Headers", Score: 23, MaxScore: 25, Status: "Hardened"},
+			{DomainKey: "tls", DomainName: "TLS Cryptography", Score: 25, MaxScore: 25, Status: "Hardened"},
+			{DomainKey: "exposure", DomainName: "Surface Exposure", Score: 20, MaxScore: 25, Status: "Strong"},
+		},
+	}
+	runner := &mockAuditRunner{report: mockReport}
+	handler := PublicSecurityAuditHandler(runner)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/security/public-audit", strings.NewReader(`{"target_url":"https://example.com"}`))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for public audit, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+
+	var res struct {
+		Report *model.SecurityAuditReport `json:"report"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&res); err != nil {
+		t.Fatalf("failed to decode json response: %v", err)
+	}
+
+	if res.Report == nil || res.Report.CompositeScore != 88 {
+		t.Errorf("unexpected report output in public audit: %+v", res.Report)
+	}
+	if res.Report.UserID != 0 {
+		t.Errorf("expected UserID to be 0 for public audit, got %d", res.Report.UserID)
+	}
+}
+
+func TestPublicSecurityAuditHandler_SSRFRejection(t *testing.T) {
+	runner := &mockAuditRunner{report: &model.SecurityAuditReport{}}
+	handler := PublicSecurityAuditHandler(runner)
+
+	invalidCases := []struct {
+		name    string
+		payload string
+	}{
+		{name: "Loopback IPv4", payload: `{"target_url":"http://127.0.0.1:8080"}`},
+		{name: "Localhost", payload: `{"target_url":"http://localhost:3000"}`},
+		{name: "Private Subnet", payload: `{"target_url":"http://10.0.0.5"}`},
+		{name: "Cloud Metadata IMDS", payload: `{"target_url":"http://169.254.169.254/latest/meta-data/"}`},
+		{name: "Empty URL", payload: `{"target_url":""}`},
+	}
+
+	for _, tc := range invalidCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/security/public-audit", strings.NewReader(tc.payload))
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("expected 400 Bad Request for %s, got %d (body: %s)", tc.name, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+

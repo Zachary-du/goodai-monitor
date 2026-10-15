@@ -11,6 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initMonitors();
   initIncidents();
   initSecurityAudit();
+  initShowcaseTabs();
+  initPublicAudit();
+  initFAQ();
   pollHealth();
   setInterval(pollHealth, 5000);
 });
@@ -1801,4 +1804,212 @@ function resetSecurityAuditState() {
   if (btnExport) btnExport.style.display = "none";
   clearAuditAlert();
 }
+
+// ==========================================================================
+// Dual-Engine Hero Showcase Tabs (TASK-012)
+// ==========================================================================
+function initShowcaseTabs() {
+  const tabTelemetry = document.getElementById("tab-telemetry-btn");
+  const tabSecurity = document.getElementById("tab-security-btn");
+  const panelTelemetry = document.getElementById("showcase-telemetry-panel");
+  const panelSecurity = document.getElementById("showcase-security-panel");
+  const headerTitle = document.getElementById("showcase-header-title");
+
+  if (!tabTelemetry || !tabSecurity || !panelTelemetry || !panelSecurity) {
+    return;
+  }
+
+  tabTelemetry.addEventListener("click", () => {
+    tabTelemetry.classList.add("active");
+    tabSecurity.classList.remove("active");
+    panelTelemetry.style.display = "block";
+    panelSecurity.style.display = "none";
+    if (headerTitle) {
+      headerTitle.textContent = "GoodAI Telemetry Console \u2022 Global Distributed Edge Network";
+    }
+  });
+
+  tabSecurity.addEventListener("click", () => {
+    tabSecurity.classList.add("active");
+    tabTelemetry.classList.remove("active");
+    panelTelemetry.style.display = "none";
+    panelSecurity.style.display = "block";
+    if (headerTitle) {
+      headerTitle.textContent = "Web Security & AI Defense \u2022 Multi-Vector Attack Surface Audit";
+    }
+  });
+}
+
+// ==========================================================================
+// Instant Public Inspection Playground (TASK-012)
+// ==========================================================================
+function initPublicAudit() {
+  const form = document.getElementById("public-audit-form");
+  const urlInput = document.getElementById("public-audit-url");
+  const submitBtn = document.getElementById("btn-public-audit-submit");
+  const loadingEl = document.getElementById("public-audit-loading");
+  const errorEl = document.getElementById("public-audit-error");
+  const resultEl = document.getElementById("public-audit-result");
+
+  if (!form || !urlInput || !submitBtn || !resultEl) {
+    return;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    let target = urlInput.value.trim();
+    if (!target) return;
+
+    // Reset view states
+    if (errorEl) {
+      errorEl.textContent = "";
+      errorEl.style.display = "none";
+    }
+    resultEl.style.display = "none";
+    if (loadingEl) loadingEl.style.display = "flex";
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch("/api/v1/security/public-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target_url: target })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || `Inspection failed (HTTP ${res.status})`);
+      }
+
+      renderPublicAuditResult(data.report, resultEl);
+      resultEl.style.display = "block";
+    } catch (err) {
+      if (errorEl) {
+        errorEl.textContent = err.message || "Failed to complete security inspection.";
+        errorEl.style.display = "block";
+      }
+    } finally {
+      if (loadingEl) loadingEl.style.display = "none";
+      submitBtn.disabled = false;
+    }
+  });
+}
+
+function renderPublicAuditResult(report, container) {
+  if (!report) return;
+
+  const score = report.composite_score || 0;
+  const grade = report.grade || "B";
+  const host = escapeHTML(report.target_host || "target");
+  const execMs = report.execution_ms || 180;
+
+  let gradeColor = "#10b981"; // green
+  if (grade === "F") gradeColor = "#ef4444";
+  else if (grade === "C") gradeColor = "#f59e0b";
+  else if (grade === "B") gradeColor = "#3b82f6";
+
+  const domains = report.domain_scores || [];
+  let domainCardsHtml = "";
+  domains.forEach(d => {
+    domainCardsHtml += `
+      <div class="audit-domain-box-sm">
+        <span class="domain-name">${escapeHTML(d.domain_name)}</span>
+        <span class="domain-score">${d.score}/${d.max_score}</span>
+        <span style="font-size: 0.6875rem; color: var(--text-muted);">${escapeHTML(d.status || "")}</span>
+      </div>
+    `;
+  });
+
+  const findings = report.findings || [];
+  let previewFindingsHtml = "";
+  const keyFindings = findings.slice(0, 3);
+  keyFindings.forEach(f => {
+    let sevBadge = `<span class="sec-tag-chip verified">${escapeHTML(f.severity)}</span>`;
+    if (f.severity === "CRITICAL" || f.severity === "HIGH") {
+      sevBadge = `<span class="sec-tag-chip" style="background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">${escapeHTML(f.severity)}</span>`;
+    } else if (f.severity === "MEDIUM") {
+      sevBadge = `<span class="sec-tag-chip" style="background-color: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">${escapeHTML(f.severity)}</span>`;
+    }
+    previewFindingsHtml += `
+      <div class="audit-finding-preview-row">
+        <span><strong>${escapeHTML(f.check_name)}</strong>: ${escapeHTML(f.observed_value || "")}</span>
+        ${sevBadge}
+      </div>
+    `;
+  });
+
+  container.innerHTML = `
+    <div class="audit-hero-banner">
+      <div class="audit-hero-info">
+        <div class="audit-hero-title">
+          <span>&#128737;</span>
+          <span>Security Audit for ${host}</span>
+        </div>
+        <div class="audit-hero-meta">
+          <span>Execution: ${execMs}ms &bull; Zero-Trust Prober &bull; Protocol Verified</span>
+        </div>
+      </div>
+      <div class="audit-score-badge-large">
+        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+          <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Composite Score</span>
+          <span style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: ${gradeColor};">${score}/100</span>
+        </div>
+        <span class="audit-grade-pill" style="background-color: ${gradeColor}; color: #ffffff;">${escapeHTML(grade)}</span>
+      </div>
+    </div>
+
+    <div class="audit-domains-grid-sm">
+      ${domainCardsHtml}
+    </div>
+
+    ${previewFindingsHtml ? `
+      <div class="audit-findings-preview-list">
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem; text-transform: uppercase;">
+          Sample Inspection Findings
+        </div>
+        ${previewFindingsHtml}
+      </div>
+    ` : ""}
+
+    <div class="audit-cta-row">
+      <div class="audit-cta-text">
+        <span>Want continuous 10s probing, historical SLA trends, and automated PDF executive reports?</span>
+      </div>
+      <button type="button" class="btn-playground-cta" id="btn-playground-signup">
+        Create Free Account &rarr;
+      </button>
+    </div>
+  `;
+
+  const btnSignup = document.getElementById("btn-playground-signup");
+  if (btnSignup) {
+    btnSignup.addEventListener("click", () => {
+      const btnOpenRegister = document.getElementById("btn-open-register");
+      if (btnOpenRegister) {
+        btnOpenRegister.click();
+      }
+    });
+  }
+}
+
+// ==========================================================================
+// Developer FAQ Accordion Management (TASK-012)
+// ==========================================================================
+function initFAQ() {
+  const faqItems = document.querySelectorAll(".faq-item");
+  faqItems.forEach(item => {
+    item.addEventListener("toggle", () => {
+      if (item.open) {
+        faqItems.forEach(other => {
+          if (other !== item && other.open) {
+            other.removeAttribute("open");
+          }
+        });
+      }
+    });
+  });
+}
+
 

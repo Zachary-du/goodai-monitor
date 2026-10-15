@@ -241,3 +241,61 @@ func parseSecurityReportID(r *http.Request) (int64, error) {
 	}
 	return strconv.ParseInt(idStr, 10, 64)
 }
+
+// PublicSecurityAuditHandler executes an instant, unauthenticated web security & AI defense check
+// for landing page visitors with strict SSRF pre-flight validation.
+// POST /api/v1/security/public-audit
+func PublicSecurityAuditHandler(auditRunner security.AuditRunner) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+			return
+		}
+
+		var req struct {
+			TargetURL string `json:"target_url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		targetURL := strings.TrimSpace(req.TargetURL)
+		if targetURL == "" {
+			writeJSONError(w, http.StatusBadRequest, "Target URL is required")
+			return
+		}
+
+		if !strings.HasPrefix(targetURL, "http://") && !strings.HasPrefix(targetURL, "https://") {
+			targetURL = "https://" + targetURL
+		}
+
+		// Pre-flight SSRF check
+		if err := security.ValidateTargetURL(targetURL); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "Invalid or restricted target URL")
+			return
+		}
+
+		if auditRunner == nil {
+			auditRunner = security.NewAuditEngine()
+		}
+
+		// Run audit with userID = 0 (unauthenticated visitor inspection)
+		report, err := auditRunner.RunAudit(r.Context(), targetURL, 0)
+		if err != nil {
+			if errors.Is(err, security.ErrRestrictedTargetURL) {
+				writeJSONError(w, http.StatusBadRequest, "Invalid or restricted target URL")
+				return
+			}
+			writeJSONError(w, http.StatusInternalServerError, "Security audit failed: "+err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"report": report,
+		})
+	}
+}
+

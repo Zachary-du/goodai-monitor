@@ -91,9 +91,10 @@ func NewRouter(db *storage.DB, cfgs ...*config.Config) http.Handler {
 		mux.HandleFunc("/api/v1/incidents/summary", RequireAuth(IncidentSummaryHandler(incidentStore)))
 	}
 
-	// Web Security & AI Defense Audit API endpoints (protected by authentication)
+	// Web Security & AI Defense Audit API endpoints
 	if securityStore != nil {
 		auditEngine := security.NewAuditEngine()
+		mux.HandleFunc("/api/v1/security/public-audit", PublicSecurityAuditHandler(auditEngine))
 		mux.HandleFunc("/api/v1/security/audit", RequireAuth(RunSecurityAuditHandler(auditEngine, securityStore, monitorStore)))
 		mux.HandleFunc("/api/v1/security/reports", RequireAuth(ListSecurityReportsHandler(securityStore)))
 		mux.HandleFunc("/api/v1/security/reports/{id}/export", RequireAuth(ExportSecurityReportHandler(securityStore)))
