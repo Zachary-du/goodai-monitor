@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Zachary-du/goodai-monitor/internal/config"
 	"github.com/Zachary-du/goodai-monitor/internal/security"
 	"github.com/Zachary-du/goodai-monitor/internal/storage"
 	"github.com/Zachary-du/goodai-monitor/web"
@@ -15,7 +16,14 @@ import (
 // NewRouter constructs and configures the HTTP router for GoodAI Monitor.
 // It registers health check telemetry endpoints, authentication endpoints,
 // monitor management and telemetry endpoints, and serves embedded frontend assets.
-func NewRouter(db *storage.DB) http.Handler {
+func NewRouter(db *storage.DB, cfgs ...*config.Config) http.Handler {
+	var cfg *config.Config
+	if len(cfgs) > 0 && cfgs[0] != nil {
+		cfg = cfgs[0]
+	} else {
+		cfg = config.Load()
+	}
+
 	mux := http.NewServeMux()
 	startTime := time.Now()
 
@@ -55,11 +63,14 @@ func NewRouter(db *storage.DB) http.Handler {
 	}
 
 	// Authentication API endpoints
+	mux.HandleFunc("/api/v1/auth/providers", ProvidersHandler(cfg))
 	if userStore != nil {
 		mux.HandleFunc("/api/v1/auth/register", RegisterHandler(userStore))
 		mux.HandleFunc("/api/v1/auth/login", LoginHandler(userStore))
 		mux.HandleFunc("/api/v1/auth/logout", LogoutHandler(userStore))
 		mux.HandleFunc("/api/v1/auth/me", RequireAuth(MeHandler(userStore)))
+		mux.HandleFunc("/api/v1/auth/google/login", GoogleLoginHandler(cfg))
+		mux.HandleFunc("/api/v1/auth/google/callback", GoogleCallbackHandler(cfg, userStore))
 	}
 
 	// Monitor Management & Telemetry API endpoints (protected by authentication)

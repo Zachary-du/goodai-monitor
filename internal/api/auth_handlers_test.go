@@ -2,13 +2,16 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/Zachary-du/goodai-monitor/internal/auth"
+	"github.com/Zachary-du/goodai-monitor/internal/config"
 	"github.com/Zachary-du/goodai-monitor/internal/model"
 )
 
@@ -294,3 +297,261 @@ func TestMeHandler(t *testing.T) {
 		t.Fatalf("expected HTTP 401 Unauthorized, got %d", unauthRec.Code)
 	}
 }
+
+func TestProvidersHandler(t *testing.T) {
+	// 1. Unconfigured
+	cfgUnconfigured := &config.Config{}
+	req1 := httptest.NewRequest(http.MethodGet, "/api/v1/auth/providers", nil)
+	rec1 := httptest.NewRecorder()
+	ProvidersHandler(cfgUnconfigured)(rec1, req1)
+
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec1.Code)
+	}
+	var resp1 map[string]bool
+	_ = json.Unmarshal(rec1.Body.Bytes(), &resp1)
+	if resp1["google"] != false {
+		t.Errorf("expected google=false when unconfigured, got %v", resp1["google"])
+	}
+
+	// 2. Configured
+	cfgConfigured := &config.Config{
+		GoogleClientID:     "mock-client-id",
+		GoogleClientSecret: "mock-secret",
+	}
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/auth/providers", nil)
+	rec2 := httptest.NewRecorder()
+	ProvidersHandler(cfgConfigured)(rec2, req2)
+
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec2.Code)
+	}
+	var resp2 map[string]bool
+	_ = json.Unmarshal(rec2.Body.Bytes(), &resp2)
+	if resp2["google"] != true {
+		t.Errorf("expected google=true when configured, got %v", resp2["google"])
+	}
+}
+
+func TestGoogleLoginHandler_Unconfigured(t *testing.T) {
+	cfg := &config.Config{} // Empty credentials
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/login", nil)
+	rec := httptest.NewRecorder()
+
+	GoogleLoginHandler(cfg)(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected HTTP 503 Service Unavailable, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoogleLoginHandler_Configured(t *testing.T) {
+	cfg := &config.Config{
+		GoogleClientID:     "client-id-12345.apps.googleusercontent.com",
+		GoogleClientSecret: "secret-xyz",
+		GoogleRedirectURI:  "https://goodai.co.nz/api/v1/auth/google/callback",
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/login", nil)
+	rec := httptest.NewRecorder()
+
+	GoogleLoginHandler(cfg)(rec, req)
+
+	if rec.Code != http.StatusFound {
+		t.Fatalf("expected HTTP 302 Found redirect, got %d", rec.Code)
+	}
+
+	location := rec.Header().Get("Location")
+	if !strings.HasPrefix(location, auth.GoogleAuthEndpoint) {
+		t.Errorf("expected Location to point to Google auth endpoint, got: %s", location)
+	}
+	if !strings.Contains(location, "client-id-12345") {
+		t.Errorf("expected Location to contain client ID, got: %s", location)
+	}
+
+	cookies := rec.Result().Cookies()
+	var stateCookie *http.Cookie
+	for _, c := range cookies {
+		if c.Name == auth.OAuthStateCookieName {
+			stateCookie = c
+			break
+		}
+	}
+	if stateCookie == nil || stateCookie.Value == "" {
+		t.Fatalf("expected oauth_state cookie to be set")
+	}
+	if !stateCookie.HttpOnly {
+		t.Errorf("expected HttpOnly state cookie")
+	}
+}
+
+func TestGoogleCallbackHandler_CSRFStateMismatch(t *testing.T) {
+	db, store := setupTestStorage(t)
+	defer db.Close()
+
+	cfg := &config.Config{
+		GoogleClientID:     "mock-client",
+		GoogleClientSecret: "mock-secret",
+		GoogleRedirectURI:  "https://goodai.co.nz/api/v1/auth/google/callback",
+	}
+
+	// Request with mismatched state
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?code=somecode&state=attack-state", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  auth.OAuthStateCookieName,
+		Value: "legit-state",
+	})
+	rec := httptest.NewRecorder()
+
+	GoogleCallbackHandler(cfg, store)(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected HTTP 400 Bad Request on state mismatch, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify state cookie is cleared
+	cookies := rec.Result().Cookies()
+	var cleared *http.Cookie
+	for _, c := range cookies {
+		if c.Name == auth.OAuthStateCookieName {
+			cleared = c
+			break
+		}
+	}
+	if cleared == nil || cleared.MaxAge != -1 {
+		t.Errorf("expected state cookie to be purged on error")
+	}
+}
+
+func TestGoogleCallbackHandler_Success_NewUser(t *testing.T) {
+	db, store := setupTestStorage(t)
+	defer db.Close()
+
+	cfg := &config.Config{
+		GoogleClientID:     "mock-client",
+		GoogleClientSecret: "mock-secret",
+		GoogleRedirectURI:  "https://goodai.co.nz/api/v1/auth/google/callback",
+	}
+
+	mockState := "valid-matching-state-nonce"
+	mockExchange := func(ctx context.Context, clientID, clientSecret, redirectURI, code string) (*auth.GoogleTokenResponse, error) {
+		if code != "valid-google-code" {
+			return nil, errors.New("bad code")
+		}
+		return &auth.GoogleTokenResponse{
+			AccessToken: "google-access-token-123",
+		}, nil
+	}
+
+	mockFetchUserInfo := func(ctx context.Context, accessToken string) (*auth.GoogleUserInfo, error) {
+		return &auth.GoogleUserInfo{
+			Sub:           "google-sub-998877",
+			Email:         "newgoogleuser@example.com",
+			EmailVerified: true,
+			Name:          "New Google User",
+		}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?code=valid-google-code&state="+mockState, nil)
+	req.AddCookie(&http.Cookie{
+		Name:  auth.OAuthStateCookieName,
+		Value: mockState,
+	})
+	rec := httptest.NewRecorder()
+
+	handler := GoogleCallbackHandlerWithServices(cfg, store, mockExchange, mockFetchUserInfo)
+	handler(rec, req)
+
+	if rec.Code != http.StatusFound {
+		t.Fatalf("expected HTTP 302 Found redirect, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+
+	if rec.Header().Get("Location") != "/" {
+		t.Errorf("expected redirect to '/', got '%s'", rec.Header().Get("Location"))
+	}
+
+	// Verify user provisioned in DB
+	user, err := store.GetUserByGoogleID(context.Background(), "google-sub-998877")
+	if err != nil {
+		t.Fatalf("failed to find provisioned user by google id: %v", err)
+	}
+	if user.Email != "newgoogleuser@example.com" {
+		t.Errorf("expected email 'newgoogleuser@example.com', got '%s'", user.Email)
+	}
+
+	// Verify session cookie set
+	cookies := rec.Result().Cookies()
+	var sessionCookie *http.Cookie
+	for _, c := range cookies {
+		if c.Name == auth.SessionCookieName {
+			sessionCookie = c
+			break
+		}
+	}
+	if sessionCookie == nil || sessionCookie.Value == "" {
+		t.Fatalf("expected valid session cookie in response")
+	}
+}
+
+func TestGoogleCallbackHandler_Success_LinkExistingUser(t *testing.T) {
+	db, store := setupTestStorage(t)
+	defer db.Close()
+
+	ctx := context.Background()
+
+	// Pre-create standard user with email
+	existing, err := store.CreateUser(ctx, &model.User{
+		Email:        "existing@goodai.co.nz",
+		PasswordHash: "bcrypt-hash-123",
+		Name:         "Existing Admin",
+	})
+	if err != nil {
+		t.Fatalf("failed to create existing user: %v", err)
+	}
+
+	cfg := &config.Config{
+		GoogleClientID:     "mock-client",
+		GoogleClientSecret: "mock-secret",
+		GoogleRedirectURI:  "https://goodai.co.nz/api/v1/auth/google/callback",
+	}
+
+	mockState := "valid-state-linking"
+	mockExchange := func(ctx context.Context, clientID, clientSecret, redirectURI, code string) (*auth.GoogleTokenResponse, error) {
+		return &auth.GoogleTokenResponse{
+			AccessToken: "google-access-token-456",
+		}, nil
+	}
+
+	mockFetchUserInfo := func(ctx context.Context, accessToken string) (*auth.GoogleUserInfo, error) {
+		return &auth.GoogleUserInfo{
+			Sub:           "google-sub-linked-555",
+			Email:         "existing@goodai.co.nz",
+			EmailVerified: true,
+			Name:          "Existing Admin",
+		}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?code=valid-code&state="+mockState, nil)
+	req.AddCookie(&http.Cookie{
+		Name:  auth.OAuthStateCookieName,
+		Value: mockState,
+	})
+	rec := httptest.NewRecorder()
+
+	handler := GoogleCallbackHandlerWithServices(cfg, store, mockExchange, mockFetchUserInfo)
+	handler(rec, req)
+
+	if rec.Code != http.StatusFound {
+		t.Fatalf("expected HTTP 302 Found, got %d", rec.Code)
+	}
+
+	// Verify account linked
+	linkedUser, err := store.GetUserByGoogleID(ctx, "google-sub-linked-555")
+	if err != nil {
+		t.Fatalf("failed to find user by linked google id: %v", err)
+	}
+	if linkedUser.ID != existing.ID {
+		t.Errorf("expected linked user ID %d, got %d", existing.ID, linkedUser.ID)
+	}
+}
+

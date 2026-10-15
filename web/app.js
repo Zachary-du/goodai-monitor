@@ -87,6 +87,49 @@ function initAuth() {
   // Initial session verification
   checkSession();
 
+  // Check URL parameters for OAuth redirect error
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has("error")) {
+    const errorMsg = urlParams.get("error");
+    showToast(`Authentication notice: ${errorMsg}`, "error");
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  // Feature detection for Google SSO
+  let googleSSOEnabled = true;
+  async function checkAuthProviders() {
+    try {
+      const resp = await fetch("/api/v1/auth/providers");
+      if (resp.ok) {
+        const data = await resp.json();
+        googleSSOEnabled = !!data.google;
+        const googleBtns = document.querySelectorAll(".btn-google-sso");
+        googleBtns.forEach((btn) => {
+          if (!googleSSOEnabled) {
+            btn.setAttribute("title", "Google SSO is not configured on this server");
+            btn.classList.add("disabled");
+          } else {
+            btn.removeAttribute("title");
+            btn.classList.remove("disabled");
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to check auth providers:", e);
+    }
+  }
+  checkAuthProviders();
+
+  // Attach click handler for Google SSO buttons
+  document.querySelectorAll(".btn-google-sso").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      if (!googleSSOEnabled) {
+        e.preventDefault();
+        showToast("Google Single Sign-On is not configured on this server.", "warning");
+      }
+    });
+  });
+
   // Modal Open / Close Triggers
   btnOpenLogin.addEventListener("click", () => openModal(loginModal));
   btnOpenRegister.addEventListener("click", () => openModal(registerModal));

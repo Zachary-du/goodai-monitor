@@ -20,6 +20,11 @@ type Config struct {
 	SMTPUsername string
 	SMTPPassword string
 	SMTPFrom     string
+
+	// Google OAuth 2.0 Single Sign-On settings
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURI  string
 }
 
 // Load reads configuration values from environment variables or applies defaults.
@@ -37,6 +42,10 @@ func Load() *Config {
 		SMTPUsername: getEnv("SMTP_USERNAME", ""),
 		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:     getEnv("SMTP_FROM", ""),
+
+		GoogleClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
+		GoogleRedirectURI:  getEnv("GOOGLE_REDIRECT_URI", "https://goodai.co.nz/api/v1/auth/google/callback"),
 	}
 }
 
@@ -51,6 +60,11 @@ func (c *Config) Address() string {
 // IsSMTPConfigured returns true if minimum SMTP configuration parameters are present.
 func (c *Config) IsSMTPConfigured() bool {
 	return c.SMTPHost != "" && c.SMTPFrom != ""
+}
+
+// IsGoogleOAuthConfigured returns true if Google OAuth credentials are fully provided.
+func (c *Config) IsGoogleOAuthConfigured() bool {
+	return c.GoogleClientID != "" && c.GoogleClientSecret != ""
 }
 
 // getEnv retrieves an environment variable or returns the default value if unset or empty.
