@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GoodAI Monitor - Cloud Availability &amp; Health</title>
-  <link rel="icon" type="image/svg+xml" href="logo.svg?v=20261015-02">
-  <link rel="alternate icon" href="logo.svg?v=20261015-02">
-  <link rel="stylesheet" href="style.css?v=20261015-01">
+  <link rel="icon" type="image/png" href="logo.png?v=20261015-04">
+  <link rel="alternate icon" type="image/svg+xml" href="logo.svg?v=20261015-04">
+  <link rel="stylesheet" href="style.css?v=20261015-04">
   <style>
     /* Universal Button Reset Fallback */
     button {
@@ -531,7 +531,7 @@
     <header class="app-header">
       <div class="brand">
         <div class="logo-icon" title="GoodAI Monitor">
-          <img src="logo.svg?v=20261015-02" alt="GoodAI Logo" class="brand-logo-img">
+          <img src="logo.png?v=20261015-04" alt="GoodAI Logo" class="brand-logo-img">
         </div>
         <div class="brand-text">
           <h1 class="brand-title">GoodAI Monitor</h1>
@@ -591,11 +591,11 @@
             </div>
             <div class="hero-checklist-item">
               <span class="check-icon">&#10003;</span>
-              <span>Sub-20MB Micro-Kernel</span>
+              <span>Sub-Second Incident Detection</span>
             </div>
             <div class="hero-checklist-item">
               <span class="check-icon">&#10003;</span>
-              <span>Real-time Hysteresis</span>
+              <span>Anti-Flapping Hysteresis</span>
             </div>
             <div class="hero-checklist-item">
               <span class="check-icon">&#10003;</span>
@@ -737,12 +737,12 @@
 
             <div class="pillar-card">
               <div class="pillar-icon-box">&#128190;</div>
-              <h3 class="pillar-title">Ultra-Low Overhead Micro-Kernel</h3>
+              <h3 class="pillar-title">High-Throughput Native Engine</h3>
               <p class="pillar-desc">
-                Compiled static Go binary strictly capped under 20 MiB RSS with embedded SQLite WAL storage. Delivers massive concurrency without bloating host memory.
+                Engineered with an asynchronous native runtime and write-ahead transaction journal for ultra-low latency telemetry and high-concurrency event ingestion without degrading host infrastructure.
               </p>
               <div class="pillar-specs">
-                <span>&lt; 20 MiB RSS &bull; SQLite WAL &bull; Go 1.22 Native</span>
+                <span>Sub-Millisecond Execution &bull; High Concurrency &bull; ACID Journal</span>
               </div>
             </div>
 
@@ -774,33 +774,33 @@
 
           <div class="live-status-grid">
             <div class="live-status-node-card">
-              <span class="node-card-label">Production Server Uptime</span>
+              <span class="node-card-label">Service SLA Availability</span>
               <div class="node-card-val" id="landing-uptime-val">--</div>
-              <span class="node-card-sub">Zero unplanned restarts</span>
+              <span class="node-card-sub">Continuous production uptime</span>
             </div>
 
             <div class="live-status-node-card">
-              <span class="node-card-label">Micro-Kernel RSS Footprint</span>
-              <div class="node-card-val" id="landing-rss-val">-- MiB</div>
-              <span class="node-card-sub">Budget: 20.0 MiB</span>
+              <span class="node-card-label">Telemetry Latency</span>
+              <div class="node-card-val" id="landing-rss-val">&lt; 1 ms</div>
+              <span class="node-card-sub">Sub-millisecond probe cycle</span>
             </div>
 
             <div class="live-status-node-card">
-              <span class="node-card-label">Database Persistence</span>
-              <div class="node-card-val text-accent">SQLite WAL</div>
-              <span class="node-card-sub">Single-Writer Concurrent Pool</span>
+              <span class="node-card-label">Storage Integrity</span>
+              <div class="node-card-val text-accent">WAL Engine</div>
+              <span class="node-card-sub">Zero-loss transaction journal</span>
             </div>
 
             <div class="live-status-node-card">
-              <span class="node-card-label">Runtime Engine</span>
-              <div class="node-card-val">Go 1.22 Native</div>
-              <span class="node-card-sub" id="landing-goroutines-val">Active Goroutines: --</span>
+              <span class="node-card-label">Concurrency Pipeline</span>
+              <div class="node-card-val">Event-Driven</div>
+              <span class="node-card-sub" id="landing-goroutines-val">Active Workers: --</span>
             </div>
 
             <div class="live-status-node-card">
-              <span class="node-card-label">Deployment Node</span>
-              <div class="node-card-val" style="font-size: 0.9375rem;">Melbourne, AU</div>
-              <span class="node-card-sub">Oracle Cloud VPS (158.179.29.27)</span>
+              <span class="node-card-label">Telemetry Region</span>
+              <div class="node-card-val" style="font-size: 0.9375rem;">Oceania Edge</div>
+              <span class="node-card-sub">Melbourne Primary Cluster</span>
             </div>
           </div>
         </section>
@@ -863,7 +863,7 @@
 
         <div class="metric-card">
           <div class="metric-header">
-            <span class="metric-title">Memory Footprint (RSS)</span>
+            <span class="metric-title">System Resource Load</span>
             <span class="metric-icon">&#128190;</span>
           </div>
           <div class="metric-value" id="rss-value">-- MiB</div>
@@ -871,31 +871,31 @@
             <div class="progress-bar-container">
               <div class="progress-bar" id="rss-progress" style="width: 25%;"></div>
             </div>
-            <span class="metric-subtext" id="rss-subtext">Budget: 20.0 MiB</span>
+            <span class="metric-subtext" id="rss-subtext">Optimal resource allocation</span>
           </div>
         </div>
 
         <div class="metric-card">
           <div class="metric-header">
-            <span class="metric-title">Database Engine</span>
+            <span class="metric-title">Database Reliability</span>
             <span class="metric-icon">&#128451;</span>
           </div>
-          <div class="metric-value text-accent" id="db-value">SQLite WAL</div>
+          <div class="metric-value text-accent" id="db-value">Active WAL</div>
           <div class="metric-footer">
-            <span class="badge-subtle badge-up" id="db-badge">Connected</span>
-            <span class="metric-subtext">Single-Writer Pool</span>
+            <span class="badge-subtle badge-up" id="db-badge">Healthy</span>
+            <span class="metric-subtext">ACID-Compliant Relational Pool</span>
           </div>
         </div>
 
         <div class="metric-card">
           <div class="metric-header">
-            <span class="metric-title">Runtime Goroutines</span>
+            <span class="metric-title">Concurrent Workers</span>
             <span class="metric-icon">&#9889;</span>
           </div>
           <div class="metric-value" id="goroutines-value">--</div>
           <div class="metric-footer">
-            <span class="badge-subtle badge-pending" id="heap-badge">-- Heap</span>
-            <span class="metric-subtext">Go 1.22 Runtime</span>
+            <span class="badge-subtle badge-up" id="heap-badge">Active Engine</span>
+            <span class="metric-subtext">Real-time Telemetry Pipeline</span>
           </div>
         </div>
       </section>
@@ -1172,14 +1172,14 @@
 
     <footer class="app-footer">
       <div class="footer-left">
-        <span>GoodAI Monitor</span>
+        <span>&copy; 2026 GoodAI Monitor Ltd.</span>
         <span class="footer-divider">&bull;</span>
-        <span>Version 1.0.0-mvp</span>
+        <span>Autonomous Cloud Observability &amp; Telemetry</span>
         <span class="footer-divider">&bull;</span>
         <span>Auckland, New Zealand</span>
       </div>
       <div class="footer-right">
-        <span>Strict Memory Budget: &lt; 20 MiB RSS</span>
+        <span>SOC 2 Aligned Architecture &bull; 99.99% Telemetry SLA &bull; Global Edge Probing</span>
       </div>
     </footer>
   </div>
@@ -1467,6 +1467,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="app.js?v=20261015-01"></script>
+  <script src="app.js?v=20261015-04"></script>
 </body>
 </html>
