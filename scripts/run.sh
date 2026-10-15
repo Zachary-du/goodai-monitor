@@ -6,7 +6,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
 echo "=== 1. Checking 100% English Policy across code and assets ==="
-MATCHES=$(git grep -P "[\x{4e00}-\x{9fa5}]" -- ':!docs' ':!Gemini.md' ':!.git' || true)
+MATCHES=$(git grep -I -P "[\x{4e00}-\x{9fa5}]" -- ':!docs' ':!Gemini.md' ':!.git' || true)
 if [ -n "$MATCHES" ]; then
     echo "ERROR: Found non-English characters in source files:"
     echo "$MATCHES"
@@ -15,16 +15,16 @@ fi
 echo "Verified: 100% English compliance maintained."
 
 echo "=== 2. Committing changes and pushing to main ==="
-git add web/index.html web/style.css web/app.js web/embed.go web/logo.png web/logo.svg scripts/run.sh
-git commit -m "feat(branding): deploy authentic Option 3 logo and commercial enterprise copy overhaul" || true
+git add .github/workflows/ci-cd.yml scripts/run.sh
+git commit -m "ci: ignore binary files in English policy verification step" || true
 git push origin main
 
 HEAD_SHA=$(git rev-parse HEAD)
 echo "Pushed commit: ${HEAD_SHA}"
 
 echo "=== 3. Dynamically awaiting remote GitHub Actions CI completion ==="
-for i in {1..30}; do
-    echo "Checking GitHub Actions CI run status (attempt $i/30)..."
+for i in {1..35}; do
+    echo "Checking GitHub Actions CI run status (attempt $i/35)..."
     RUN_DATA=$(curl -s "https://api.github.com/repos/Zachary-du/goodai-monitor/actions/runs?head_sha=${HEAD_SHA}&per_page=1")
     STATUS=$(echo "$RUN_DATA" | grep -o '"status": *"[^"]*"' | head -n 1 | cut -d'"' -f4 || true)
     CONCLUSION=$(echo "$RUN_DATA" | grep -o '"conclusion": *"[^"]*"' | head -n 1 | cut -d'"' -f4 || true)

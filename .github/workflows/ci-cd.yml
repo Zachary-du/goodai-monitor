@@ -33,7 +33,7 @@ jobs:
       - name: Verify 100% English Policy
         run: |
           echo "Scanning for non-English characters in source files..."
-          MATCHES=$(git grep -P "[\x{4e00}-\x{9fa5}]" -- ':!docs' ':!Gemini.md' ':!.git' || true)
+          MATCHES=$(git grep -I -P "[\x{4e00}-\x{9fa5}]" -- ':!docs' ':!Gemini.md' ':!.git' || true)
           if [ -n "$MATCHES" ]; then
             echo "ERROR: Found non-English characters in source files:"
             echo "$MATCHES"
